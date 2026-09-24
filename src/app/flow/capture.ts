@@ -7,12 +7,32 @@ import { state } from '../state.js';
 import { flow } from './engine.js';
 
 /** Records one movement for the given hands over a window after a cue. */
-export async function captureTrial(hands: Handedness[], seconds = 2.2, settle = 0.5): Promise<Record<Handedness, TrialBuffer>> {
+export interface PeakPose {
+  sum: number;
+  pose: Float32Array | null;
+}
+
+export async function captureTrial(
+  hands: Handedness[],
+  seconds = 2.2,
+  settle = 0.5,
+  peak?: Record<Handedness, PeakPose>,
+): Promise<Record<Handedness, TrialBuffer>> {
   const out = { left: new TrialBuffer(), right: new TrialBuffer() };
   await flow.wait(settle);
   const end = flow.time + seconds;
   await flow.until(() => {
-    for (const h of hands) out[h].push(state.hands[h].kin, state.hands[h].valid);
+    for (const h of hands) {
+      const t = state.hands[h];
+      out[h].push(t.kin, t.valid);
+      if (peak && t.valid) {
+        const sum = t.kin.fingers[0].sum + t.kin.fingers[1].sum + t.kin.fingers[2].sum + t.kin.fingers[3].sum;
+        if (sum > peak[h].sum) {
+          peak[h].sum = sum;
+          peak[h].pose = new Float32Array(t.pose);
+        }
+      }
+    }
     return flow.time >= end;
   });
   return out;

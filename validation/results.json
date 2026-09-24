@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-24T19:18:33.173Z",
+  "generated": "2026-09-24T21:00:58.287Z",
   "noiseModel": {
     "staticSigma": 10,
     "sessionSigma": 6,
@@ -207,8 +207,8 @@
       "fast": 0.25
     },
     "shipped": {
-      "k": 3.5,
-      "fast": 0.12
+      "k": 2.5,
+      "fast": 0.25
     },
     "heldOut": {
       "falsePerMin": 0.655,
@@ -248,11 +248,11 @@
     "detection": false,
     "wholeHandFalseRate": true,
     "wholeHandDetection": false,
-    "shippedMatchesChosen": false
+    "shippedMatchesChosen": true
   },
   "S5": {
     "curves": 200,
-    "spearman": 0.972940823520588
+    "spearman": 0.9728418210455262
   },
   "S5_pass": {
     "spearman": true

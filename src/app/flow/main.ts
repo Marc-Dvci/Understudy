@@ -48,6 +48,15 @@ function calibrationHash(): string {
 export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   await store.init();
   if (options.fresh) await store.clear();
+  // demo: start from simulated history (?seed=21), marked as simulated on screen
+  const seedN = Number(new URLSearchParams(location.search).get('seed') ?? 0);
+  if (options.fresh && seedN > 0) {
+    const { seedHistory } = await import('../emulation/seed.js');
+    for (const r of seedHistory(seedN, 'left')) await store.saveSession(r);
+    state.profile.understudy = 'left';
+    state.profile.program = 'understudy';
+    await store.saveProfile(state.profile);
+  }
   const saved = await store.profile();
   if (saved) state.profile = saved;
   sound.voiceEnabled = state.profile.voice;

@@ -74,6 +74,8 @@ const MOVES: { id: 'open' | 'fist' | 'oppose'; title: string; icon: 'open' | 'fi
 export interface PrintResult {
   hands: Handedness[];
   trials: Record<Handedness, HandPrint[]>;
+  /** Pose at the fullest fist per hand. */
+  peak: Record<Handedness, { sum: number; pose: Float32Array | null }>;
 }
 
 /** Three trials of open, fist and opposition for the given hands. */
@@ -81,13 +83,14 @@ export async function handPrint(hands: Handedness[], trialsCount = 3): Promise<P
   flow.step = 'hand-print';
   await flow.tell('handprint-intro', { icon: 'hand', title: 'Your hand print', body: 'Three quick movements, three times.' }, 3.2);
   const trials: Record<Handedness, HandPrint[]> = { left: [], right: [] };
+  const peak = { left: { sum: -Infinity, pose: null as Float32Array | null }, right: { sum: -Infinity, pose: null as Float32Array | null } };
   for (let t = 0; t < trialsCount; t++) {
     const buffers: Partial<Record<(typeof MOVES)[number]['id'], Awaited<ReturnType<typeof captureTrial>>>> = {};
     for (let m = 0; m < MOVES.length; m++) {
       const mv = MOVES[m];
       flow.expect = { kind: 'move', movement: mv.id, hands };
       flow.say(t === 0 ? mv.id : null, { icon: mv.icon, title: mv.title, step: { index: t * 3 + m, total: trialsCount * 3 } });
-      buffers[mv.id] = await captureTrial(hands, 1.7, t === 0 ? 1.1 : 0.7);
+      buffers[mv.id] = await captureTrial(hands, 1.7, t === 0 ? 1.1 : 0.7, mv.id === 'fist' ? peak : undefined);
       sound.tap(undefined, 0.3);
     }
     for (const h of hands) {
@@ -101,7 +104,7 @@ export async function handPrint(hands: Handedness[], trialsCount = 3): Promise<P
   }
   flow.expect = { kind: 'move', movement: 'relax', hands };
   sound.chime();
-  return { hands, trials };
+  return { hands, trials, peak };
 }
 
 export function printViews(result: PrintResult, records: SessionRecord[]): PrintView[] {
@@ -130,7 +133,10 @@ export async function showHandPrint(result: PrintResult, records: SessionRecord[
 }
 
 export function recordPrint(record: SessionRecord, result: PrintResult): void {
+  record.poses = record.poses ?? {};
   for (const h of result.hands) {
+    const p = result.peak?.[h]?.pose;
+    if (p) record.poses[h] = { fist: Array.from(p, (x) => Math.round(x * 1e4) / 1e4) };
     const trials = result.trials[h];
     const s = sessionPrint(trials);
     const put = (id: MetricId, value: number, perTrial: number[]) => {

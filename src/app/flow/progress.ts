@@ -4,7 +4,7 @@
  */
 import { Handedness } from '../../core/joints.js';
 import { MetricId } from '../../core/measure.js';
-import { progressFor, seriesFor, metricKey } from '../../core/records.js';
+import { progressFor, seriesFor, metricKey, SessionRecord } from '../../core/records.js';
 import { sound } from '../audio.js';
 import { stage } from '../stage.js';
 import { state, understudyHand } from '../state.js';
@@ -46,9 +46,48 @@ export async function showProgress(): Promise<void> {
   }
   if (!rows.length) return;
   stage.card.hide();
-  stage.board.draw(drawProgress(rows.slice(0, 4), `Progress over ${records.length} session${records.length === 1 ? '' : 's'}`), 1.4);
+  const simulated = records.some((r) => r.simulated);
+  const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated ? ' (simulated history)' : ''}`;
+  stage.board.draw(drawProgress(rows.slice(0, 4), title), 1.4);
   stage.board.show();
   void sound.say('progress-intro');
-  await flow.wait(7);
+  const ghost = program === 'understudy' ? showGhost(records, us) : null;
+  await flow.wait(ghost ? 9 : 7);
+  ghost?.();
   stage.board.hide();
+}
+
+/**
+ * Today's fullest fist beside a ghost of the same hand two weeks ago, both
+ * resting on the mat centre. Returns a function that hides them.
+ */
+function showGhost(records: SessionRecord[], hand: Handedness): (() => void) | null {
+  const withPose = records.filter((r) => r.poses?.[hand]?.fist);
+  if (withPose.length < 2) return null;
+  const today = withPose[withPose.length - 1].poses![hand]!.fist;
+  const before = withPose[Math.max(0, withPose.length - 15)].poses![hand]!.fist;
+  const place = (src: number[], u: number): Float32Array => {
+    const p = new Float32Array(src);
+    const target = stage.toWorld(u, -0.02, 0.07);
+    const dx = target.x - p[12];
+    const dy = target.y - p[13];
+    const dz = target.z - p[14];
+    for (let j = 0; j < 25; j++) {
+      p[j * 16 + 12] += dx;
+      p[j * 16 + 13] += dy;
+      p[j * 16 + 14] += dz;
+    }
+    return p;
+  };
+  const ghostModel = stage.hands.history;
+  const todayModel = hand === 'left' ? stage.hands.demoLeft : stage.hands.demoRight;
+  ghostModel.apply(place(before, -0.05));
+  ghostModel.setVisible(true);
+  todayModel.setMaterial(stage.skin);
+  todayModel.apply(place(today, 0.07));
+  todayModel.setVisible(true);
+  return () => {
+    ghostModel.setVisible(false);
+    todayModel.setVisible(false);
+  };
 }
