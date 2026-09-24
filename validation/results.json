@@ -1,0 +1,263 @@
+{
+  "generated": "2026-09-24T19:18:33.173Z",
+  "noiseModel": {
+    "staticSigma": 10,
+    "sessionSigma": 6,
+    "jitterSigma": 2,
+    "jitterTau": 0.06,
+    "occlusionUnderread": 0.08,
+    "occlusionAbove": 180,
+    "dropoutRate": 0.03,
+    "dropoutBurst": 4,
+    "wristJitter": 0.002
+  },
+  "S2": {
+    "users": 24,
+    "sessions": 20,
+    "default": {
+      "sem": {
+        "tam.index": 7.494801332319761,
+        "tam.middle": 6.457218504044959,
+        "tam.ring": 6.888114238716129,
+        "tam.little": 6.06759372874904,
+        "tam.total": 13.574199746063137,
+        "opening": 0.4800107002770839,
+        "spread": 2.652348771104865,
+        "kapandji": 1.1383812060328495
+      },
+      "mdc": {
+        "tam.index": 20.774529395258753,
+        "tam.middle": 17.8984965279087,
+        "tam.ring": 19.09287856811245,
+        "tam.little": 16.818511750646987,
+        "tam.total": 37.625762063318064,
+        "opening": 1.3305217791354753,
+        "spread": 7.35193570431062,
+        "kapandji": 3.155431715815701
+      },
+      "estimatorToTrue": {
+        "median": 0.9632621012738604,
+        "min": 0.5594629646268798,
+        "max": 1.3588213503630087
+      }
+    },
+    "sensitivity": {
+      "sessionSigma3": {
+        "tam.index": 4.695976889162641,
+        "tam.middle": 3.1923209292553176,
+        "tam.ring": 4.3413393297874014,
+        "tam.little": 3.531995423181611,
+        "tam.total": 7.806136791358102,
+        "opening": 0.24484558877022214,
+        "spread": 1.342248550402854,
+        "kapandji": 0.5486180905856494
+      },
+      "sessionSigma9": {
+        "tam.index": 12.43412745536359,
+        "tam.middle": 9.06148871655396,
+        "tam.ring": 11.536390379894423,
+        "tam.little": 9.754581970416565,
+        "tam.total": 20.948154303321257,
+        "opening": 0.7172743069089794,
+        "spread": 4.048442216373215,
+        "kapandji": 1.3804767668509856
+      }
+    }
+  },
+  "S3": {
+    "mdcUsed": 20.774529395258753,
+    "floor": 20,
+    "byTrajectory": {
+      "steady": {
+        "patients": 50,
+        "moveRate": 0.08086956521739133,
+        "finalShareError": {
+          "median": 0.05875328097733373,
+          "p90": 0.13839172652914378
+        }
+      },
+      "plateau": {
+        "patients": 50,
+        "moveRate": 0.0932608695652174,
+        "finalShareError": {
+          "median": 0.051457340829138776,
+          "p90": 0.12208421131681935
+        }
+      },
+      "none": {
+        "patients": 50,
+        "moveRate": 0.0023913043478260864,
+        "finalShareError": {
+          "median": 0.08181562716911209,
+          "p90": 0.13087726289870155
+        }
+      },
+      "relapse": {
+        "patients": 50,
+        "moveRate": 0.15260869565217391,
+        "finalShareError": {
+          "median": 0.1607152633603058,
+          "p90": 0.2595828063199583
+        }
+      }
+    },
+    "flatMoveRate": 0.002391304347826087,
+    "steadyFinalErrorMedian": 0.06169380687884263
+  },
+  "S3_pass": {
+    "flatMoveRate": true,
+    "steadyWithin015": true
+  },
+  "S4": {
+    "attemptDefinition": "summed MCP+PIP+DIP flexion of one finger, ramped over 0.6 s, held 0.6 s",
+    "development": [
+      {
+        "k": 2.5,
+        "fast": 0.12,
+        "falsePerMin": 0.3275,
+        "detection": 0.289
+      },
+      {
+        "k": 3,
+        "fast": 0.12,
+        "falsePerMin": 0.06,
+        "detection": 0.108
+      },
+      {
+        "k": 3.5,
+        "fast": 0.12,
+        "falsePerMin": 0.0075,
+        "detection": 0.034
+      },
+      {
+        "k": 4,
+        "fast": 0.12,
+        "falsePerMin": 0,
+        "detection": 0.007
+      },
+      {
+        "k": 5,
+        "fast": 0.12,
+        "falsePerMin": 0,
+        "detection": 0
+      },
+      {
+        "k": 2.5,
+        "fast": 0.25,
+        "falsePerMin": 0.4625,
+        "detection": 0.382
+      },
+      {
+        "k": 3,
+        "fast": 0.25,
+        "falsePerMin": 0.12,
+        "detection": 0.193
+      },
+      {
+        "k": 3.5,
+        "fast": 0.25,
+        "falsePerMin": 0.025,
+        "detection": 0.075
+      },
+      {
+        "k": 4,
+        "fast": 0.25,
+        "falsePerMin": 0.0025,
+        "detection": 0.031
+      },
+      {
+        "k": 5,
+        "fast": 0.25,
+        "falsePerMin": 0,
+        "detection": 0.002
+      },
+      {
+        "k": 2.5,
+        "fast": 0.4,
+        "falsePerMin": 0.51,
+        "detection": 0.356
+      },
+      {
+        "k": 3,
+        "fast": 0.4,
+        "falsePerMin": 0.1425,
+        "detection": 0.187
+      },
+      {
+        "k": 3.5,
+        "fast": 0.4,
+        "falsePerMin": 0.05,
+        "detection": 0.085
+      },
+      {
+        "k": 4,
+        "fast": 0.4,
+        "falsePerMin": 0.01,
+        "detection": 0.032
+      },
+      {
+        "k": 5,
+        "fast": 0.4,
+        "falsePerMin": 0,
+        "detection": 0.006
+      }
+    ],
+    "chosen": {
+      "k": 2.5,
+      "fast": 0.25
+    },
+    "shipped": {
+      "k": 3.5,
+      "fast": 0.12
+    },
+    "heldOut": {
+      "falsePerMin": 0.655,
+      "detection": 0.234
+    },
+    "heldOutBySize": [
+      {
+        "size": 5,
+        "finger": 0.27,
+        "wholeHand": 0.93
+      },
+      {
+        "size": 10,
+        "finger": 0.94,
+        "wholeHand": 1
+      },
+      {
+        "size": 15,
+        "finger": 1,
+        "wholeHand": 1
+      },
+      {
+        "size": 20,
+        "finger": 1,
+        "wholeHand": 1
+      }
+    ],
+    "heldOutWholeHand5": {
+      "falsePerMin": 0.55,
+      "detection": 0.895
+    },
+    "users": 10,
+    "minutes": 10
+  },
+  "S4_pass": {
+    "falseRate": true,
+    "detection": false,
+    "wholeHandFalseRate": true,
+    "wholeHandDetection": false,
+    "shippedMatchesChosen": false
+  },
+  "S5": {
+    "curves": 200,
+    "spearman": 0.972940823520588
+  },
+  "S5_pass": {
+    "spearman": true
+  },
+  "S11": {
+    "identical": true
+  }
+}

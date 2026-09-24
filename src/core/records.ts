@@ -1,0 +1,198 @@
+/**
+ * Session records, the user's profile, and the progress summaries built from
+ * them. Everything here is plain data so it serialises to IndexedDB, to the
+ * CSV export and to tests unchanged.
+ */
+import { DriftResult } from './embodiment.js';
+import { GmiStage, LateralityScore } from './gmi.js';
+import { Handedness } from './joints.js';
+import { METRICS, MetricDef, MetricId, WarmupFit } from './measure.js';
+import { median } from './math.js';
+import { Stage, updateShare } from './rehearse.js';
+import {
+  belowUsualTwice,
+  Change,
+  classifyChange,
+  ErrorEstimate,
+  estimateError,
+  usualRange,
+  UsualRange,
+} from './stats.js';
+
+export type ProgramId = 'understudy' | 'phantom' | 'warmup';
+
+export const PROGRAM_LABEL: Record<ProgramId, string> = {
+  understudy: 'Understudy',
+  phantom: 'Phantom',
+  warmup: 'Morning Warm-up',
+};
+
+export const APP_VERSION = '1.0.0';
+
+export interface Profile {
+  /** The hand that needs work; null when both hands train together. */
+  understudy: Handedness | null;
+  program: ProgramId;
+  createdAt: number;
+  skinTone: number;
+  handScale: number;
+  /** Keep every panel and target on this side (hemispatial neglect). */
+  keepSide: 'none' | 'left' | 'right';
+  dwellSeconds: number;
+  voice: boolean;
+  captions: boolean;
+  textScale: number;
+}
+
+export function defaultProfile(): Profile {
+  return {
+    understudy: 'left',
+    program: 'understudy',
+    createdAt: Date.now(),
+    skinTone: 2,
+    handScale: 1,
+    keepSide: 'none',
+    dwellSeconds: 1.2,
+    voice: true,
+    captions: true,
+    textScale: 1,
+  };
+}
+
+export interface MetricValue {
+  value: number;
+  trials: number[];
+  validShare: number;
+}
+
+export interface SessionRecord {
+  id: string;
+  startedAt: number;
+  endedAt?: number;
+  program: ProgramId;
+  understudy: Handedness | null;
+  appVersion: string;
+  /** Hash of the station and hand calibration, so a changed setup is visible. */
+  calibrationHash: string;
+  /** Keyed `${hand}:${metricId}`. */
+  metrics: Record<string, MetricValue>;
+  painBefore?: number;
+  painAfter?: number;
+  stiffnessSelf?: number;
+  shares?: number[];
+  stage?: Stage | GmiStage;
+  drift?: DriftResult;
+  laterality?: LateralityScore;
+  warmup?: { ranges: number[]; fit: WarmupFit | null };
+  exercises: { id: string; seconds: number; reps: number }[];
+  completed: boolean;
+}
+
+export function metricKey(hand: Handedness, id: MetricId): string {
+  return `${hand}:${id}`;
+}
+
+export function newSessionId(now = Date.now()): string {
+  return `s-${now.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+export function seriesFor(records: SessionRecord[], key: string): number[] {
+  return records.map((r) => r.metrics[key]?.value ?? NaN);
+}
+
+export function trialsFor(records: SessionRecord[], key: string): number[][] {
+  return records.map((r) => r.metrics[key]?.trials ?? []);
+}
+
+export interface Progress {
+  def: MetricDef;
+  latest: number;
+  baseline: number;
+  change: Change;
+  error: ErrorEstimate;
+  usual: UsualRange | null;
+  flagged: boolean;
+  sessions: number;
+}
+
+/**
+ * Today's value against the baseline (median of the first three sessions, or
+ * the value 14 sessions ago once there are enough), judged by the MDC.
+ */
+export function progressFor(records: SessionRecord[], hand: Handedness, id: MetricId): Progress {
+  const def = METRICS[id];
+  const key = metricKey(hand, id);
+  const series = seriesFor(records, key);
+  const finite = series.filter(Number.isFinite);
+  const error = estimateError(trialsFor(records, key), series, def.priorSem);
+  const latest = finite.length ? finite[finite.length - 1] : NaN;
+  const baseline =
+    finite.length > 14 ? finite[finite.length - 15] : finite.length >= 2 ? median(finite.slice(0, Math.min(3, finite.length - 1))) : NaN;
+  return {
+    def,
+    latest,
+    baseline,
+    change: classifyChange(latest, baseline, error.mdc, def.higherIsBetter),
+    error,
+    usual: usualRange(finite.slice(0, -1), error.sem),
+    flagged: belowUsualTwice(finite, error.sem, def.higherIsBetter),
+    sessions: finite.length,
+  };
+}
+
+export const SHARE_FLOOR = 20;
+
+/**
+ * Replays the hand-over rule over the whole history, so the share each finger
+ * holds today is a pure function of the records.
+ */
+export function sharesFromHistory(records: SessionRecord[], understudy: Handedness): number[] {
+  const lead: Handedness = understudy === 'left' ? 'right' : 'left';
+  const fingers: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
+  const shares = [0, 0, 0, 0];
+  fingers.forEach((id, f) => {
+    const own = seriesFor(records, metricKey(understudy, id));
+    const ref = seriesFor(records, metricKey(lead, id));
+    const err = estimateError(trialsFor(records, metricKey(understudy, id)), own, METRICS[id].priorSem);
+    const state = { anchorRange: NaN, share: 0 };
+    const history: number[] = [];
+    let leadRef = NaN;
+    for (let i = 0; i < own.length; i++) {
+      if (Number.isFinite(ref[i])) leadRef = ref[i];
+      if (!Number.isFinite(own[i])) continue;
+      history.push(own[i]);
+      updateShare(state, median(history.slice(-3)), leadRef, SHARE_FLOOR, err.mdc);
+    }
+    shares[f] = state.share;
+  });
+  return shares;
+}
+
+/** Thumb share follows the mean of the fingers: the thumb has no TAM metric. */
+export function fiveShares(fingerShares: number[]): number[] {
+  const m = fingerShares.reduce((a, b) => a + b, 0) / fingerShares.length;
+  return [m, ...fingerShares];
+}
+
+/** CSV export of every metric value in every session. */
+export function toCsv(records: SessionRecord[]): string {
+  const keys = new Set<string>();
+  records.forEach((r) => Object.keys(r.metrics).forEach((k) => keys.add(k)));
+  const cols = [...keys].sort();
+  const head = ['session', 'date', 'program', 'understudy', 'app', 'calibration', 'pain_before', 'pain_after', ...cols];
+  const rows = records.map((r) => [
+    r.id,
+    new Date(r.startedAt).toISOString(),
+    r.program,
+    r.understudy ?? 'both',
+    r.appVersion,
+    r.calibrationHash,
+    r.painBefore ?? '',
+    r.painAfter ?? '',
+    ...cols.map((c) => {
+      const v = r.metrics[c]?.value;
+      return Number.isFinite(v) ? (v as number).toFixed(2) : '';
+    }),
+  ]);
+  return [head, ...rows].map((row) => row.join(',')).join('\n');
+}

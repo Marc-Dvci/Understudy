@@ -11,6 +11,8 @@
     "reference:status": "iwsdk reference status",
     "reference:warmup": "iwsdk reference warmup",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "vitest run --config vitest.validate.config.ts",
     "build": "vite build",
     "preview": "vite preview"
   },

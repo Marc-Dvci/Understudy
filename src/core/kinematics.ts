@@ -262,6 +262,21 @@ export function kapandjiScore(k: HandKinematics, reach = 0.022): number {
   return score;
 }
 
+/**
+ * Continuous thumb reach on the Kapandji scale: landmark i counts fully within
+ * `reach` metres and fades to zero at `far`. A graded score changes smoothly
+ * with the thumb, so tracker jitter moves it by fractions, not whole points.
+ */
+export function kapandjiContinuous(k: HandKinematics, reach = 0.022, far = 0.045): number {
+  let score = 0;
+  for (let i = 1; i <= 10; i++) {
+    const d = k.thumb.kapandji[i];
+    const s = d <= reach ? 1 : d >= far ? 0 : (far - d) / (far - reach);
+    if (s > 0) score = Math.max(score, i - 1 + s);
+  }
+  return score;
+}
+
 /** Finger flexion values in a fixed order: index..little MCP, PIP, DIP. */
 export function flatAngles(k: HandKinematics, out: number[]): number[] {
   let i = 0;
