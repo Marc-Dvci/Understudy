@@ -25,8 +25,8 @@ export class Stage {
   readonly cloth = new Cloth();
   readonly card = new Card(0.42, 0.22, 'instruction-card');
   readonly board = new CanvasPanel(0.52, 0.26, 2600, 'board');
-  /** A strip lying flat at the near edge of the mat, between the hands. */
-  readonly meter = new CanvasPanel(0.26, 0.075, 2600, 'meter').flat();
+  /** A small standing panel at the back corner on the Understudy side. */
+  readonly meter = new CanvasPanel(0.24, 0.11, 2600, 'meter');
   readonly press = new PressInput();
   readonly skin = makeSkinMaterial(2);
   readonly ghost = makeGhostMaterial('#cfe6ff', 0.3);
@@ -148,7 +148,9 @@ export class Stage {
     const keep = state.profile.keepSide;
     const cu = keep === 'none' ? 0 : keep === 'right' ? 0.14 : -0.14;
     if (this.cardSlot === 'back') {
-      this.card.group.position.set(cu, 0.12, -(MAT_D / 2 + 0.07));
+      // with the meter up, the card steps away from it
+    const cardShift = this.meter.target > 0 ? -(understudyHand() === 'left' ? -1 : 1) * 0.07 : 0;
+    this.card.group.position.set(cu + cardShift, 0.12, -(MAT_D / 2 + 0.07));
       this.card.group.rotation.set(-0.35, 0, 0);
     } else {
       this.card.group.position.set(cu, 0.3, -(MAT_D / 2 + 0.12));
@@ -160,7 +162,9 @@ export class Stage {
     this.mat.update(dt);
     this.cloth.update(dt);
     this.card.update(dt);
-    this.meter.group.position.set(0, 0.0025, MAT_D / 2 - 0.05);
+    const uSide = understudyHand() === 'left' ? -1 : 1;
+    this.meter.group.position.set(uSide * 0.31, 0.07, -(MAT_D / 2 + 0.02));
+    this.meter.group.rotation.set(-0.4, -uSide * 0.35, 0, 'YXZ');
     this.card.suppressed = this.board.target > 0;
     this.board.update(dt);
     this.meter.update(dt);

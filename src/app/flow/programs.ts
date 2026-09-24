@@ -84,7 +84,7 @@ async function understudySession(): Promise<void> {
   const stageLabel = record.stage === 'watch' ? 'Watch' : record.stage === 'perform' ? 'Perform' : 'Rehearse';
   const drawLive = () => {
     const gates = [0, 1, 2, 3, 4].map((f) => Math.max(mirror.handDetector.gate, mirror.fingerDetectors[f].gate));
-    stage.meter.draw(drawMeter(shares, `${stageLabel}: % of each finger that is you`, gates));
+    stage.meter.draw(drawMeter(shares, `${stageLabel}: how much is you`, gates));
   };
   drawLive();
   stage.meter.show();
@@ -202,7 +202,7 @@ async function recogniseBlock(seed: string): Promise<ReturnType<typeof scoreLate
   await flow.wait(2.5);
   stage.layoutStones(['lat-left', 'lat-right']);
   const answers: LateralityAnswer[] = [];
-  const center = stage.toWorld(0, 0.02, 0.16);
+  const center = stage.toWorld(0, 0.02, 0.1);
   for (let i = 0; i < stim.length; i++) {
     const s = stim[i];
     const model = s.hand === 'left' ? stage.hands.demoLeft : stage.hands.demoRight;
@@ -327,9 +327,8 @@ async function warmupSession(): Promise<void> {
   await flow.wait(2.5);
   const ranges: Record<Handedness, number[]> = { left: [], right: [] };
   for (let r = 0; r < 10; r++) {
-    flow.expect = { kind: 'warmup-fist', rep: r };
     flow.say(null, { icon: 'fist', title: 'Close', step: { index: r, total: 10 } });
-    flow.expect = { kind: 'move', movement: 'fist', hands: ['left', 'right'] };
+    flow.expect = { kind: 'move', movement: 'fist', hands: ['left', 'right'], rep: r };
     const [pl, pr] = await Promise.all([captureRepPeak('left', 1.6), captureRepPeak('right', 1.6)]);
     ranges.left.push(pl);
     ranges.right.push(pr);

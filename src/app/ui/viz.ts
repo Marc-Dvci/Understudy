@@ -5,7 +5,7 @@
 import { Handedness } from '../../core/joints.js';
 import { DriftResult } from '../../core/embodiment.js';
 import { PALETTE } from '../render/materials.js';
-import { FONT, roundRect } from './text.js';
+import { FONT, roundRect, wrap as wrapText } from './text.js';
 
 export interface PrintView {
   hand: Handedness;
@@ -47,7 +47,7 @@ export function drawHandPrint(views: PrintView[], title: string) {
       const cx = w * (views.length === 1 ? 0.5 : idx === 0 ? 0.27 : 0.73);
       const cy = h * 0.8;
       const color = v.role === 'lead' ? PALETTE.lead : v.role === 'understudy' ? PALETTE.understudy : '#7a8a99';
-      const maxLen = h * 0.5;
+      const maxLen = h * 0.44;
       // fan: little finger to index, left hand mirrored so thumbs point inward
       const dir = v.hand === 'left' ? 1 : -1;
       for (let f = 0; f < 4; f++) {
@@ -75,15 +75,15 @@ export function drawHandPrint(views: PrintView[], title: string) {
         const ly = cy + Math.sin(angle) * (len + 70);
         ctx.textAlign = 'center';
         ctx.fillStyle = PALETTE.ink;
-        ctx.font = `700 ${Math.round(h * 0.052)}px ${FONT}`;
+        ctx.font = `700 ${Math.round(h * 0.07)}px ${FONT}`;
         ctx.fillText(Number.isFinite(val) ? `${Math.round(val * k)}°` : '--', lx, ly);
-        ctx.font = `400 ${Math.round(h * 0.034)}px ${FONT}`;
+        ctx.font = `400 ${Math.round(h * 0.05)}px ${FONT}`;
         ctx.fillStyle = PALETTE.muted;
-        ctx.fillText(`${FINGER_NAMES[f]}${Number.isFinite(v.mdc[f]) ? ` ±${Math.round(v.mdc[f])}` : ''}`, lx, ly + h * 0.045);
+        ctx.fillText(`${FINGER_NAMES[f]}${Number.isFinite(v.mdc[f]) ? ` ±${Math.round(v.mdc[f])}` : ''}`, lx, ly + h * 0.06);
       }
       ctx.textAlign = 'center';
       ctx.fillStyle = color;
-      ctx.font = `700 ${Math.round(h * 0.05)}px ${FONT}`;
+      ctx.font = `700 ${Math.round(h * 0.065)}px ${FONT}`;
       const roleLabel = v.role === 'lead' ? 'Lead' : v.role === 'understudy' ? 'Understudy' : '';
       ctx.fillText(`${v.hand === 'left' ? 'Left' : 'Right'} hand${roleLabel ? ` · ${roleLabel}` : ''}`, cx, h * 0.91);
       ctx.textAlign = 'left';
@@ -218,17 +218,17 @@ export function drawProgress(rows: ProgressRow[], title: string) {
   return (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => {
     backdrop(ctx, w, h);
     ctx.fillStyle = PALETTE.ink;
-    ctx.font = `700 ${Math.round(h * 0.072)}px ${FONT}`;
-    ctx.fillText(title, 70, h * 0.13);
+    ctx.font = `700 ${Math.round(h * 0.09)}px ${FONT}`;
+    ctx.fillText(title, 70, h * 0.14);
     const k = ease(t / 1.2);
     const rowH = (h * 0.74) / Math.max(1, rows.length);
     rows.forEach((r, i) => {
       const y0 = h * 0.2 + i * rowH;
       const vals = r.values.filter(Number.isFinite);
       ctx.fillStyle = PALETTE.ink;
-      ctx.font = `700 ${Math.round(Math.min(rowH * 0.3, h * 0.05))}px ${FONT}`;
+      ctx.font = `700 ${Math.round(Math.min(rowH * 0.34, h * 0.075))}px ${FONT}`;
       ctx.fillText(r.label, 70, y0 + rowH * 0.42);
-      ctx.font = `400 ${Math.round(Math.min(rowH * 0.24, h * 0.04))}px ${FONT}`;
+      ctx.font = `400 ${Math.round(Math.min(rowH * 0.28, h * 0.062))}px ${FONT}`;
       ctx.fillStyle = PALETTE.muted;
       const val = Number.isFinite(r.latest) ? `${Math.round(r.latest)}${r.unit}` : '--';
       ctx.fillText(`${val}  ±${Math.round(r.mdc)}`, 70, y0 + rowH * 0.78);
@@ -260,7 +260,7 @@ export function drawProgress(rows: ProgressRow[], title: string) {
       const tag = r.change === 'improved' ? 'Real gain' : r.change === 'declined' ? 'Real drop' : r.change === 'steady' ? 'Steady' : 'New';
       const tagColor = r.change === 'improved' ? PALETTE.good : r.change === 'declined' ? PALETTE.caution : PALETTE.muted;
       ctx.fillStyle = tagColor;
-      ctx.font = `700 ${Math.round(Math.min(rowH * 0.26, h * 0.042))}px ${FONT}`;
+      ctx.font = `700 ${Math.round(Math.min(rowH * 0.3, h * 0.065))}px ${FONT}`;
       ctx.textAlign = 'right';
       ctx.fillText(tag, w - 60, y0 + rowH * 0.55);
       ctx.textAlign = 'left';
@@ -276,11 +276,19 @@ export function drawMessage(title: string, lines: string[], accent = PALETTE.und
     roundRect(ctx, 14, 12, 20, h - 34, 10);
     ctx.fill();
     ctx.fillStyle = PALETTE.ink;
-    ctx.font = `700 ${Math.round(h * 0.1)}px ${FONT}`;
-    ctx.fillText(title, 80, h * 0.2);
-    ctx.font = `400 ${Math.round(h * 0.06)}px ${FONT}`;
+    ctx.font = `700 ${Math.round(h * 0.13)}px ${FONT}`;
+    ctx.fillText(title, 80, h * 0.22);
+    ctx.font = `400 ${Math.round(h * 0.085)}px ${FONT}`;
     ctx.fillStyle = '#334155';
-    lines.forEach((l, i) => ctx.fillText(l, 80, h * 0.34 + i * h * 0.09));
+    let y = h * 0.4;
+    for (const l of lines) {
+      for (const part of wrapText(ctx, l, w - 160)) {
+        if (y > h * 0.92) break;
+        ctx.fillText(part, 80, y);
+        y += h * 0.105;
+      }
+      y += h * 0.02;
+    }
   };
 }
 
@@ -288,20 +296,21 @@ export function drawMessage(title: string, lines: string[], accent = PALETTE.und
 export function drawMeter(shares: number[], stageLabel: string, attempt: number[]) {
   return (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     ctx.save();
-    roundRect(ctx, 6, 6, w - 12, h - 12, h * 0.3);
+    roundRect(ctx, 6, 6, w - 12, h - 12, h * 0.22);
     ctx.fillStyle = 'rgba(250,247,241,0.95)';
     ctx.fill();
     ctx.restore();
     const names = ['Thumb', 'Index', 'Middle', 'Ring', 'Little'];
     ctx.fillStyle = PALETTE.ink;
-    ctx.font = `700 ${Math.round(h * 0.2)}px ${FONT}`;
-    ctx.fillText(stageLabel, h * 0.25, h * 0.3);
-    const gw = (w - h * 0.5) / 5;
+    ctx.textAlign = 'center';
+    ctx.font = `700 ${Math.round(h * 0.15)}px ${FONT}`;
+    ctx.fillText(stageLabel, w / 2, h * 0.22);
+    const gw = (w - 40) / 5;
     for (let f = 0; f < 5; f++) {
-      const cx = h * 0.25 + gw * (f + 0.5);
-      const cy = h * 0.6;
-      const r = Math.min(gw * 0.3, h * 0.2);
-      ctx.lineWidth = r * 0.34;
+      const cx = 20 + gw * (f + 0.5);
+      const cy = h * 0.52;
+      const r = Math.min(gw * 0.3, h * 0.19);
+      ctx.lineWidth = r * 0.3;
       ctx.strokeStyle = '#e1dacd';
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -313,21 +322,20 @@ export function drawMeter(shares: number[], stageLabel: string, attempt: number[
       ctx.stroke();
       if ((attempt[f] ?? 0) > 0.05) {
         ctx.strokeStyle = PALETTE.good;
-        ctx.globalAlpha = attempt[f];
-        ctx.lineWidth = r * 0.2;
+        ctx.globalAlpha = Math.min(1, attempt[f]);
+        ctx.lineWidth = r * 0.22;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 1.45, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r * 1.42, 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
       ctx.fillStyle = PALETTE.ink;
-      ctx.textAlign = 'center';
-      ctx.font = `700 ${Math.round(r * 0.75)}px ${FONT}`;
-      ctx.fillText(`${Math.round(v * 100)}`, cx, cy + r * 0.28);
+      ctx.font = `700 ${Math.round(r * 0.8)}px ${FONT}`;
+      ctx.fillText(`${Math.round(v * 100)}`, cx, cy + r * 0.3);
       ctx.font = `400 ${Math.round(h * 0.12)}px ${FONT}`;
       ctx.fillStyle = PALETTE.muted;
-      ctx.fillText(names[f], cx + r * 1.9, cy + r * 0.3);
-      ctx.textAlign = 'left';
+      ctx.fillText(names[f], cx, h * 0.9);
     }
+    ctx.textAlign = 'left';
   };
 }

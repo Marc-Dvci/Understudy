@@ -5,6 +5,7 @@
  */
 import { BufferAttribute, Float32BufferAttribute, Group, Mesh, PlaneGeometry } from '@iwsdk/core';
 import { rng } from '../../core/math.js';
+import { makeCanvas } from '../ui/text.js';
 import { makeClothMaterial } from './materials.js';
 
 const LEN = 0.3;
@@ -20,7 +21,7 @@ export class Cloth {
   private settle = 0;
   private target = 0;
   /** Height of the drape over the hand, metres. */
-  readonly bulge = 0.05;
+  readonly bulge = 0.04;
 
   constructor() {
     const geo = new PlaneGeometry(WID, LEN, NX, NZ);
@@ -34,17 +35,22 @@ export class Cloth {
     for (let i = 0; i < pos.count; i++) {
       const x = this.base[i * 3];
       const z = this.base[i * 3 + 2];
-      // hand silhouette: an ellipse, fuller at the palm (z > 0 is toward the wrist)
-      const ex = x / (WID * 0.36);
-      const ez = (z + 0.01) / (LEN * 0.4);
+      // the hand under the cloth: an ellipse, fuller over the palm (z > 0 is the wrist side)
+      const ex = x / (WID * 0.34);
+      const ez = (z + 0.01) / (LEN * 0.38);
       const d = Math.sqrt(ex * ex + ez * ez);
-      const inside = Math.max(0, 1 - d);
-      let y = this.bulge * smooth(inside * 1.6);
-      // folds
-      for (let k = 0; k < 6; k++) y += 0.0035 * Math.sin(wr[k * 3] + x * wr[k * 3 + 1] + z * wr[k * 3 + 1] * wr[k * 3 + 2]) * (0.4 + inside);
+      const crown = this.bulge * smooth(Math.max(0, 1 - d) * 1.5);
+      // fabric falls away from the hand in radial folds that deepen outward
+      const ang = Math.atan2(z, x);
+      const out = Math.max(0, d - 0.7);
+      let folds = 0;
+      for (let k = 0; k < 3; k++) folds += Math.sin(ang * (5 + k * 2) + wr[k * 3]) * (0.5 - k * 0.12);
+      const skirt = this.bulge * 0.4 * Math.exp(-out * 2.6) * smooth(Math.min(1, d / 0.9));
+      let y = Math.max(crown, skirt * (0.85 + 0.15 * folds));
+      for (let k = 3; k < 6; k++) y += 0.0018 * Math.sin(wr[k * 3] + x * wr[k * 3 + 1] + z * wr[k * 3 + 1] * wr[k * 3 + 2]) * smooth(1 - out);
       // hem rests on the table
       const edge = Math.min(WID / 2 - Math.abs(x), LEN / 2 - Math.abs(z));
-      y *= smooth(Math.min(1, edge / 0.03));
+      y *= smooth(Math.min(1, edge / 0.035));
       this.draped[i * 3] = x;
       this.draped[i * 3 + 1] = Math.max(0.0015, y);
       this.draped[i * 3 + 2] = z;
@@ -53,7 +59,7 @@ export class Cloth {
     const colors = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
       const y = this.draped[i * 3 + 1];
-      const k = 0.72 + 0.28 * Math.min(1, y / this.bulge + 0.15);
+      const k = 0.86 + 0.14 * Math.min(1, y / this.bulge + 0.2);
       colors[i * 3] = k;
       colors[i * 3 + 1] = k * 0.98;
       colors[i * 3 + 2] = k * 0.95;
@@ -61,6 +67,27 @@ export class Cloth {
     geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
     const mat = makeClothMaterial();
     mat.vertexColors = true;
+    // rounded, slightly uneven hem
+    const hem = makeCanvas(128, 256);
+    hem.ctx.fillStyle = '#000';
+    hem.ctx.fillRect(0, 0, 128, 256);
+    hem.ctx.fillStyle = '#fff';
+    hem.ctx.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const t = (i / 64) * Math.PI * 2;
+      const c = Math.cos(t);
+      const s2 = Math.sin(t);
+      const rr = 1 + 0.035 * Math.sin(t * 7 + 1) + 0.02 * Math.sin(t * 13);
+      const px = 64 + Math.sign(c) * Math.pow(Math.abs(c), 0.55) * 60 * rr;
+      const py = 128 + Math.sign(s2) * Math.pow(Math.abs(s2), 0.55) * 124 * rr;
+      if (i === 0) hem.ctx.moveTo(px, py);
+      else hem.ctx.lineTo(px, py);
+    }
+    hem.ctx.fill();
+    hem.texture.needsUpdate = true;
+    mat.alphaMap = hem.texture;
+    mat.alphaTest = 0.5;
+    mat.transparent = false;
     this.mesh = new Mesh(geo, mat);
     this.mesh.renderOrder = 1;
     this.group.add(this.mesh);

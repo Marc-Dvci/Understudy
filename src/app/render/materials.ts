@@ -56,7 +56,7 @@ export function makeGhostMaterial(color = '#bfe3ff', opacity = 0.28): MeshStanda
 /** Linen cloth that hides the real hand in passthrough. */
 export function makeClothMaterial(): MeshPhysicalMaterial {
   return new MeshPhysicalMaterial({
-    color: new Color('#c9b79a'),
+    color: new Color('#e4d9c6'),
     roughness: 0.92,
     sheen: 1,
     sheenRoughness: 0.8,

@@ -124,7 +124,7 @@ export async function flowerExercise(reps = 6): Promise<{ reps: number; peakOpen
 export async function pianoExercise(notes = 8): Promise<{ played: number; individuation: Record<Handedness, number> }> {
   flow.step = 'ex-piano';
   const lead = leadHand();
-  const keyGeo = new BoxGeometry(0.018, 0.004, 0.05);
+  const keyGeo = new BoxGeometry(0.02, 0.006, 0.055);
   const keys: { lead: Mesh[]; us: Mesh[] } = { lead: [], us: [] };
   const group = new Group();
   stage.table.add(group);
@@ -160,7 +160,7 @@ export async function pianoExercise(notes = 8): Promise<{ played: number; indivi
   for (const side of ['lead', 'us'] as const) {
     const pose = side === 'lead' ? state.hands[lead].pose : state.mirror.renderPose;
     for (let f = 0; f < 4; f++) {
-      const m = new Mesh(keyGeo, new MeshStandardMaterial({ color: new Color('#ffffff'), emissive: new Color(side === 'lead' ? PALETTE.lead : PALETTE.understudy), emissiveIntensity: 0 }));
+      const m = new Mesh(keyGeo, new MeshStandardMaterial({ color: new Color('#fbf7f0'), roughness: 0.5, emissive: new Color(side === 'lead' ? PALETTE.lead : PALETTE.understudy), emissiveIntensity: 0 }));
       const p = keyAt(pose, f);
       m.position.set(p.x, 0.003, p.z - 0.01);
       group.add(m);
@@ -173,7 +173,7 @@ export async function pianoExercise(notes = 8): Promise<{ played: number; indivi
   for (let n = 0; n < notes; n++) {
     const finger = [0, 1, 2, 3, 3, 2, 1, 0][n % 8];
     flow.expect = { kind: 'piano', finger };
-    for (const side of ['lead', 'us'] as const) keys[side].forEach((k, i) => ((k.material as MeshStandardMaterial).emissiveIntensity = i === finger ? 0.9 : 0.05));
+    for (const side of ['lead', 'us'] as const) keys[side].forEach((k, i) => ((k.material as MeshStandardMaterial).emissiveIntensity = i === finger ? 1.6 : 0.12));
     const peakLead = [...baseLead];
     const peakUs = [...baseUs];
     const ok = await flow.until(() => {

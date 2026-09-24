@@ -30,12 +30,17 @@ export interface Persona {
   weakSide: Handedness;
   /** Drift the persona feels toward the virtual hand, metres. */
   drift: number;
+  /** Morning stiffness: share of range missing on the first fist, and its warm-up constant in fists. */
+  stiffness: number;
+  stiffTau: number;
 }
 
 export const DEMO_PERSONA: Persona = {
   weakRange: [0.45, 0.4, 0.35, 0.3, 0.25],
   weakSide: 'left',
   drift: 0.034,
+  stiffness: 0.28,
+  stiffTau: 2.2,
 };
 
 export class Autopilot {
@@ -50,6 +55,8 @@ export class Autopilot {
   head = v3(0.06, 1.16, -0.16);
   headPitch = -38;
   private tapPhase = 0;
+  /** Current warm-up repetition, -1 outside the warm-up. */
+  private warmRep = -1;
   enabled = true;
   private readonly tableY: number;
   private readonly tableCenter: Float64Array;
@@ -170,8 +177,16 @@ export class Autopilot {
         case 'press':
           await this.poke(e.hand ?? this.pokeHand(), e.id);
           break;
+        case 'warmup-fist':
+          this.warmRep = e.rep;
+          break;
         case 'move': {
-          const target = e.movement === 'open' ? openAngles() : e.movement === 'fist' ? fistAngles() : e.movement === 'oppose' ? opposeAngles() : null;
+          let target = e.movement === 'open' ? openAngles() : e.movement === 'fist' ? fistAngles() : e.movement === 'oppose' ? opposeAngles() : null;
+          if (target && e.movement === 'fist' && e.rep !== undefined) {
+            // stiff on the first fists of the morning, loosening as it warms
+            const lost = this.persona.stiffness * Math.exp(-e.rep / this.persona.stiffTau);
+            target = lerpAngles(this.restFor('right'), target, 1 - lost);
+          }
           await Promise.all(
             e.hands.map((h) =>
               target
@@ -227,6 +242,10 @@ export class Autopilot {
     } finally {
       this.busy = false;
     }
+  }
+
+  resetWarmup(): void {
+    this.warmRep = -1;
   }
 
   private pokeHand(): Handedness {
