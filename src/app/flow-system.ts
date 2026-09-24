@@ -34,7 +34,12 @@ export class FlowSystem extends createSystem({}) {
         const input = q.get('input');
         const persona = { ...DEMO_PERSONA, weakSide: input === 'left' ? ('right' as const) : ('left' as const) };
         if (q.has('seat')) this.seatHeight = Number(q.get('seat'));
-        this.autopilot = new Autopilot(driver, this.demoTable, persona);
+        // tests seat the user at a given table: ?table=x,y,z&facing=fx,fz
+        const table = q.get('table')?.split(',').map(Number);
+        if (table && table.length === 3) this.demoTable = v3(table[0], table[1], table[2]);
+        const face = q.get('facing')?.split(',').map(Number);
+        const facing = face && face.length === 2 ? v3(face[0], 0, face[1]) : v3(0, 0, -1);
+        this.autopilot = new Autopilot(driver, this.demoTable, persona, facing);
         this.autopilot.head[1] = this.demoTable[1] + this.seatHeight;
         if (input === 'dwell') this.autopilot.inputMode = 'dwell';
         if (input === 'gaze') this.autopilot.inputMode = 'gaze';

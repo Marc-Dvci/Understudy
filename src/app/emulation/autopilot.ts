@@ -65,19 +65,24 @@ export class Autopilot {
   private readonly tableY: number;
   private readonly tableCenter: Float64Array;
 
-  constructor(driver: IwerHandDriver, tableCenter: Vec3, persona = DEMO_PERSONA) {
+  /** Direction the seated user faces, horizontal unit vector. */
+  readonly facing: Float64Array;
+
+  constructor(driver: IwerHandDriver, tableCenter: Vec3, persona = DEMO_PERSONA, facing: Vec3 = v3(0, 0, -1)) {
     this.driver = driver;
+    this.facing = v3(facing[0], 0, facing[2]);
     this.persona = persona;
     this.tableY = tableCenter[1];
     this.tableCenter = v3(tableCenter[0], tableCenter[1], tableCenter[2]);
-    this.head = v3(tableCenter[0], tableCenter[1] + 0.42, tableCenter[2] + 0.5);
+    const f = this.facing;
+    this.head = v3(tableCenter[0] - f[0] * 0.5, tableCenter[1] + 0.42, tableCenter[2] - f[2] * 0.5);
     this.actors = {
-      left: new HandActor('left', v3(tableCenter[0] - 0.16, tableCenter[1] + 0.02, tableCenter[2] + 0.12), 0.186, 11),
-      right: new HandActor('right', v3(tableCenter[0] + 0.16, tableCenter[1] + 0.02, tableCenter[2] + 0.12), 0.19, 12),
+      left: new HandActor('left', v3(tableCenter[0], tableCenter[1] + 0.02, tableCenter[2]), 0.186, 11),
+      right: new HandActor('right', v3(tableCenter[0], tableCenter[1] + 0.02, tableCenter[2]), 0.19, 12),
     };
     for (const h of ['left', 'right'] as Handedness[]) {
       const a = this.actors[h];
-      a.setImmediate(this.restFor(h), this.restPosition(h), palmDownOrientation(v3(0, 0, -1), h === 'left' ? -4 : 4));
+      a.setImmediate(this.restFor(h), this.restPosition(h), palmDownOrientation(this.facing, h === 'left' ? -4 : 4));
     }
   }
 
@@ -90,20 +95,22 @@ export class Autopilot {
       const w = stage.toWorld(u, -0.05, 0);
       p = v3(w.x, w.y, w.z);
     } else {
-      p = v3(this.tableCenter[0] + u, this.tableY, this.tableCenter[2] + 0.12);
+      // right = forward x up
+      const f = this.facing;
+      p = v3(this.tableCenter[0] - f[2] * u - f[0] * 0.12, this.tableY, this.tableCenter[2] + f[0] * u - f[2] * 0.12);
     }
     // wrist height that puts relaxed fingertips on the surface
     const a = this.actors?.[h];
     const drop = a ? this.tipDrop(a, this.restFor(h)) : 0.02;
     // the wrist sits behind the palm: shift toward the user by 9 cm
-    const f = s.ready ? s.forward : v3(0, 0, -1);
+    const f = s.ready ? s.forward : this.facing;
     return v3(p[0] - f[0] * 0.09, p[1] + drop, p[2] - f[2] * 0.09);
   }
 
   private tipDrop(a: HandActor, angles: HandAngles): number {
     const pose = a.build();
     void pose;
-    const o = palmDownOrientation(state.station.ready ? state.station.forward : v3(0, 0, -1));
+    const o = palmDownOrientation(state.station.ready ? state.station.forward : this.facing);
     const tmp = new HandActor(a.handedness, v3(), a.length);
     tmp.setImmediate(angles, v3(), o);
     tmp.sway = 0;
@@ -153,7 +160,7 @@ export class Autopilot {
     invertRigid(this.refFromWorld, playerMatrix);
     this.driver.claim();
     // seated head, looking down at the table
-    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    const f = state.station.ready ? state.station.forward : this.facing;
     let yaw = Math.atan2(-f[0], -f[2]);
     let pitch = this.headPitch * RAD;
     if (this.lookAt) {
@@ -270,7 +277,7 @@ export class Autopilot {
   }
 
   private async toRest(h: Handedness, seconds: number): Promise<void> {
-    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    const f = state.station.ready ? state.station.forward : this.facing;
     await this.actors[h].move(
       { angles: this.restFor(h), position: this.restPosition(h), orientation: palmDownOrientation(f, h === 'left' ? -4 : 4) },
       seconds,
@@ -308,7 +315,7 @@ export class Autopilot {
 
   private async pokeAt(h: Handedness, target: Float64Array, hold = 0.18): Promise<void> {
     const a = this.actors[h];
-    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    const f = state.station.ready ? state.station.forward : this.facing;
     const orient = pokeOrientation(f, 38);
     const point = pointAngles();
     const above = v3(target[0], target[1] + 0.06, target[2]);

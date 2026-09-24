@@ -286,9 +286,8 @@ export interface WarmupFit {
 export function fitWarmup(ranges: number[]): WarmupFit | null {
   const pts = ranges.map((y, i) => [i + 1, y] as const).filter(([, y]) => Number.isFinite(y));
   if (pts.length < 4) return null;
-  let best: WarmupFit | null = null;
-  for (let tau = 0.25; tau <= 12; tau *= 1.06) {
-    // y = P (1 - e) + A e ; solve 2x2 least squares
+  const solve = (tau: number): WarmupFit | null => {
+    // y = P (1 - e) + A e ; linear least squares in P and A for a fixed tau
     let s11 = 0;
     let s12 = 0;
     let s22 = 0;
@@ -296,16 +295,14 @@ export function fitWarmup(ranges: number[]): WarmupFit | null {
     let b2 = 0;
     for (const [r, y] of pts) {
       const e = Math.exp(-(r - 1) / tau);
-      const x1 = 1 - e;
-      const x2 = e;
-      s11 += x1 * x1;
-      s12 += x1 * x2;
-      s22 += x2 * x2;
-      b1 += x1 * y;
-      b2 += x2 * y;
+      s11 += (1 - e) * (1 - e);
+      s12 += (1 - e) * e;
+      s22 += e * e;
+      b1 += (1 - e) * y;
+      b2 += e * y;
     }
     const det = s11 * s22 - s12 * s12;
-    if (Math.abs(det) < 1e-12) continue;
+    if (Math.abs(det) < 1e-12) return null;
     const P = (b1 * s22 - b2 * s12) / det;
     const A = (s11 * b2 - s12 * b1) / det;
     let sse = 0;
@@ -313,18 +310,36 @@ export function fitWarmup(ranges: number[]): WarmupFit | null {
       const e = Math.exp(-(r - 1) / tau);
       sse += (y - (P * (1 - e) + A * e)) ** 2;
     }
-    if (!best || sse < best.sse) {
-      best = {
-        plateau: P,
-        first: A,
-        tau,
-        stiffness: P > 0 ? clamp(((P - A) / P) * 100, 0, 100) : NaN,
-        repsTo90: 1 + tau * Math.log(10),
-        sse,
-      };
-    }
+    return {
+      plateau: P,
+      first: A,
+      tau,
+      stiffness: P > 0 ? clamp(((P - A) / P) * 100, 0, 100) : NaN,
+      repsTo90: 1 + tau * Math.log(10),
+      sse,
+    };
+  };
+  let best: WarmupFit | null = null;
+  for (let tau = 0.25; tau <= 12; tau *= 1.06) {
+    const f = solve(tau);
+    if (f && (!best || f.sse < best.sse)) best = f;
   }
-  return best;
+  if (!best) return null;
+  // refine tau by golden-section search around the best grid point
+  let lo = best.tau / 1.06;
+  let hi = best.tau * 1.06;
+  const g = (Math.sqrt(5) - 1) / 2;
+  for (let i = 0; i < 40; i++) {
+    const a = hi - g * (hi - lo);
+    const b = lo + g * (hi - lo);
+    const fa = solve(a);
+    const fb = solve(b);
+    if (!fa || !fb) break;
+    if (fa.sse < fb.sse) hi = b;
+    else lo = a;
+  }
+  const refined = solve((lo + hi) / 2);
+  return refined && refined.sse <= best.sse ? refined : best;
 }
 
 // ------------------------------------------------------------- individuation

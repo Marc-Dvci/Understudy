@@ -87,6 +87,7 @@ export class IwerHandDriver {
       hand.updatePinchValue?.(0);
     }
     this.installed = true;
+    hideControlBanner();
     return true;
   }
 
@@ -150,4 +151,24 @@ function mul(out: Float32Array, a: ArrayLike<number>, b: ArrayLike<number>, ob: 
       out[c * 4 + r] = s;
     }
   }
+}
+
+/**
+ * The emulator's dev UI shows a "Remote Control Active" badge while code drives
+ * the device. The demo is not remote-controlled by a person, so the badge is
+ * hidden; everything else in the emulator UI stays as it is.
+ */
+function hideControlBanner(): void {
+  const hide = (root: ParentNode) => {
+    root.querySelectorAll('*').forEach((el) => {
+      const e = el as HTMLElement;
+      if (e.childElementCount <= 2 && /Remote Control Active/i.test(e.textContent ?? '') && e.offsetHeight < 80) {
+        e.style.display = 'none';
+      }
+      if (e.shadowRoot) hide(e.shadowRoot);
+    });
+  };
+  const run = () => hide(document);
+  run();
+  new MutationObserver(run).observe(document.body, { childList: true, subtree: true });
 }

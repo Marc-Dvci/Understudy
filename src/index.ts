@@ -56,7 +56,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     if (started) return;
     started = true;
     stage.trackedStyle = flowSystem.autopilot || state.emulated ? 'skin' : 'hidden';
-    void runApp({ fresh: freshFlag || params.has('fresh') || params.has('demo') }).catch((e) => console.error('[understudy] flow failed', e));
+    void runApp({ fresh: freshFlag || params.has('fresh') || params.has('demo') || demoMode }).catch((e) => console.error('[understudy] flow failed', e));
   };
   world.visibilityState.subscribe((v) => {
     if (v !== VisibilityState.NonImmersive) {
@@ -66,6 +66,32 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     }
     flow.paused = v === VisibilityState.VisibleBlurred;
   });
-  setupLanding(world, () => sound.resume());
+  let demoMode = false;
+  setupLanding(
+    world,
+    () => sound.resume(),
+    () => {
+      // a computer with the emulator: the demo plays with the simulated user
+      demoMode = true;
+      flowSystem.wantAutopilot = true;
+    },
+  );
+  // offline cache for daily use; production builds only
+  if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register(`${base}sw.js`).catch(() => undefined);
+  }
+  // launched from the Quest library as an installed app: the icon tap is the
+  // user activation, so the session starts straight away
+  if ('getDigitalGoodsService' in window) {
+    const xr = (navigator as Navigator & { xr?: XRSystem }).xr;
+    xr?.isSessionSupported('immersive-ar')
+      .then((ok) => {
+        if (ok) {
+          sound.resume();
+          world.launchXR();
+        }
+      })
+      .catch(() => undefined);
+  }
   (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, quality: services.quality };
 });
