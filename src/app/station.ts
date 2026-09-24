@@ -28,6 +28,8 @@ export class StationSystem extends createSystem({}) {
   private readonly listeners: Listener[] = [];
   private readonly tmp = v3();
   searching = false;
+  /** Test switch: behave as in a room without Space Setup. */
+  ignoreLabels = false;
   /** Seconds spent searching, for the prompt to escalate to the fallback. */
   searchTime = 0;
 
@@ -68,7 +70,7 @@ export class StationSystem extends createSystem({}) {
     // track stillness of flat hands
     for (const h of ['left', 'right'] as Handedness[]) this.trackStill(state.hands[h], delta);
 
-    const tableFromPlanes = frame && ref ? this.findLabelledTable(frame, ref) : null;
+    const tableFromPlanes = frame && ref && !this.ignoreLabels ? this.findLabelledTable(frame, ref) : null;
     const flat = this.flatHandSurface();
 
     if (tableFromPlanes && (flat !== null || this.searchTime > 1.5 || !this.anyHandTracked())) {

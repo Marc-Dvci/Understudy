@@ -47,8 +47,9 @@ function placeFloatingCard(): void {
   const g = stage.card.group;
   if (g.parent !== stage.root) stage.root.add(g);
   const f = state.headForward;
-  g.position.set(state.head[0] + f[0] * 0.6, state.head[1] - 0.18, state.head[2] + f[2] * 0.6);
-  g.rotation.set(-0.25, Math.atan2(-f[0], -f[2]), 0, 'YXZ');
+  // ahead and below eye level, where the table will be
+  g.position.set(state.head[0] + f[0] * 0.62, state.head[1] - 0.34, state.head[2] + f[2] * 0.62);
+  g.rotation.set(-0.5, Math.atan2(-f[0], -f[2]), 0, 'YXZ');
 }
 
 export async function chooseSide(expect: Handedness | 'both' = 'left'): Promise<Handedness | 'both'> {

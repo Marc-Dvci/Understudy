@@ -61,7 +61,8 @@ export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
 async function firstVisit(records: SessionRecord[]): Promise<void> {
   flow.step = 'tour';
   const record = newRecord('understudy');
-  const side = await chooseSide('left');
+  const q = new URLSearchParams(location.search);
+  const side = await chooseSide(q.get('input') === 'left' ? 'right' : 'left');
   const pr = await handPrint(['left', 'right']);
   recordPrint(record, pr);
   await showHandPrint(pr, records);

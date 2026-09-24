@@ -23,8 +23,8 @@ export class Stage {
   readonly table = new Group();
   readonly mat = new Mat();
   readonly cloth = new Cloth();
-  readonly card = new Card(0.42, 0.22, 'instruction-card');
-  readonly board = new CanvasPanel(0.52, 0.26, 2600, 'board');
+  readonly card = new Card(0.4, 0.2, 'instruction-card');
+  readonly board = new CanvasPanel(0.5, 0.24, 2600, 'board');
   /** A small standing panel at the back corner on the Understudy side. */
   readonly meter = new CanvasPanel(0.24, 0.11, 2600, 'meter');
   readonly press = new PressInput();
@@ -109,13 +109,13 @@ export class Stage {
    * Places stones in a row near the far edge of the mat. With neglect support
    * on, the row stays on the attended side.
    */
-  layoutStones(ids: string[], row: 'far' | 'near' = 'far'): void {
+  layoutStones(ids: string[], row: 'far' | 'near' | 'mid' = 'far'): void {
     const n = ids.length;
     const keep = state.profile.keepSide;
     const span = keep === 'none' ? MAT_W - 0.12 : MAT_W / 2 - 0.05;
     const center = keep === 'none' ? 0 : keep === 'right' ? MAT_W / 4 : -MAT_W / 4;
     const gap = n > 1 ? Math.min(0.13, span / (n - 1)) : 0;
-    const v = row === 'far' ? 0.15 : -0.15;
+    const v = row === 'far' ? 0.15 : row === 'mid' ? 0.055 : -0.15;
     ids.forEach((id, i) => {
       const s = this.press.get(id);
       if (!s) return;
@@ -147,17 +147,17 @@ export class Stage {
     // the card stands behind the mat and leans back, facing the user
     const keep = state.profile.keepSide;
     const cu = keep === 'none' ? 0 : keep === 'right' ? 0.14 : -0.14;
-    if (this.cardSlot === 'back') {
-      // with the meter up, the card steps away from it
-    const cardShift = this.meter.target > 0 ? -(understudyHand() === 'left' ? -1 : 1) * 0.07 : 0;
-    this.card.group.position.set(cu + cardShift, 0.12, -(MAT_D / 2 + 0.07));
-      this.card.group.rotation.set(-0.35, 0, 0);
-    } else {
-      this.card.group.position.set(cu, 0.3, -(MAT_D / 2 + 0.12));
-      this.card.group.rotation.set(-0.15, 0, 0);
+    // Before the table exists the flow floats the card ahead of the user.
+    // Once on the table it stands low behind the mat and leans back, so it
+    // stays inside the Meta VR Glasses view (25 degrees up) of the mat. With
+    // the meter up, the card steps away from it.
+    if (this.card.group.parent === this.table) {
+      const cardShift = this.meter.target > 0 ? -(understudyHand() === 'left' ? -1 : 1) * 0.07 : 0;
+      this.card.group.position.set(cu + cardShift, 0.058, -(MAT_D / 2 + 0.015));
+      this.card.group.rotation.set(-0.72, 0, 0);
     }
-    this.board.group.position.set(cu, 0.15, -(MAT_D / 2 + 0.1));
-    this.board.group.rotation.set(-0.3, 0, 0);
+    this.board.group.position.set(cu, 0.07, -(MAT_D / 2 + 0.02));
+    this.board.group.rotation.set(-0.7, 0, 0);
 
     this.mat.update(dt);
     this.cloth.update(dt);

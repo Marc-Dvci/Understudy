@@ -52,7 +52,11 @@
   "dev": {
     "emulator": {
       "device": "metaQuest3",
-      "environment": "office_small"
+      "injectOnBuild": true,
+      "activation": "always",
+      "userAgentException": {
+        "source": "OculusBrowser|Quest|MetaVR|Meta VR|Pico|Vision"
+      }
     }
   }
 }

@@ -14,6 +14,7 @@ import { MirrorSystem } from './app/mirror-system.js';
 import { stage, StageSystem } from './app/stage.js';
 import { state } from './app/state.js';
 import { StationSystem } from './app/station.js';
+import { QualitySystem } from './app/quality.js';
 import { loadFonts } from './app/ui/text.js';
 
 const base = import.meta.env.BASE_URL;
@@ -36,11 +37,16 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   world.registerSystem(FlowSystem, { priority: -20 });
   world.registerSystem(MirrorSystem, { priority: -10 });
   world.registerSystem(StageSystem, { priority: 0 });
+  world.registerSystem(QualitySystem, { priority: 10 });
+  services.quality = world.getSystem(QualitySystem) ?? null;
   services.station = world.getSystem(StationSystem) ?? null;
   services.mirror = world.getSystem(MirrorSystem) ?? null;
   const flowSystem = world.getSystem(FlowSystem)!;
   // the autopilot runs in the emulator unless ?manual is set
   flowSystem.wantAutopilot = params.has('demo') || (import.meta.env.DEV && !params.has('manual'));
+  flowSystem.demoRoom = !params.has('sem') && !params.has('noroom');
+  if (params.get('input') === 'gaze') stage.press.gazeEnabled = true;
+  if (params.has('nolabel') && services.station) services.station.ignoreLabels = true;
 
   world.createTransformEntity(stage.root);
   await stage.loadHands(base);
@@ -61,5 +67,5 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     flow.paused = v === VisibilityState.VisibleBlurred;
   });
   setupLanding(world, () => sound.resume());
-  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world };
+  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, quality: services.quality };
 });

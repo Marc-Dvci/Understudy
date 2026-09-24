@@ -21,6 +21,8 @@ export async function runSettings(): Promise<void> {
     stage.stone({ id: 'set-dwell', label: 'Dwell', sub: `${p.dwellSeconds.toFixed(1)} s`, icon: 'touch' });
     stage.stone({ id: 'set-voice', label: 'Voice', sub: p.voice ? 'on' : 'off', icon: 'dot' });
     stage.stone({ id: 'set-skin', label: 'Skin', sub: `${Math.round(p.skinTone) + 1}/${SKIN_TONES.length}`, icon: 'hand' });
+    stage.stone({ id: 'set-diag', label: 'Device check', icon: 'chart' });
+    stage.stone({ id: 'set-erase', label: 'Erase data', icon: 'stop', accent: '#d9822b' });
     stage.stone({ id: 'set-done', label: 'Back', icon: 'back' });
     stage.board.draw(
       drawMessage('Settings', [
@@ -30,8 +32,26 @@ export async function runSettings(): Promise<void> {
       ]),
     );
     stage.board.show();
-    const id = await flow.choose(['set-side', 'set-keep', 'set-dwell', 'set-voice', 'set-skin', 'set-done'], 'set-done');
+    const ids = ['set-side', 'set-keep', 'set-dwell', 'set-voice', 'set-skin', 'set-diag', 'set-erase', 'set-done'];
+    stage.layoutStones(ids.slice(0, 4), 'far');
+    stage.layoutStones(ids.slice(4), 'mid');
+    flow.expect = { kind: 'press', id: 'set-done' };
+    const id = await stage.press.wait(ids);
+    sound.press();
+    stage.hideStones();
     if (id === 'set-done') break;
+    if (id === 'set-diag') {
+      const code = services.quality?.code() ?? 'unavailable';
+      stage.board.draw(drawMessage('Device check', ['Read this code to the developer:', code, 'It holds frame timing and the features this headset supports. No personal data.']));
+      await flow.wait(8);
+      continue;
+    }
+    if (id === 'set-erase') {
+      await store.clear();
+      stage.board.draw(drawMessage('Data erased', ['Every session on this headset has been deleted.']));
+      await flow.wait(3);
+      continue;
+    }
     if (id === 'set-side') {
       p.understudy = p.understudy === 'left' ? 'right' : p.understudy === 'right' ? null : 'left';
       if (p.understudy) await stage.setUnderstudySide(services.base);

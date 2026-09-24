@@ -58,6 +58,10 @@ export class Autopilot {
   /** Current warm-up repetition, -1 outside the warm-up. */
   private warmRep = -1;
   enabled = true;
+  /** How the simulated user presses stones: poke, hover (dwell) or look (head gaze). */
+  inputMode: 'poke' | 'dwell' | 'gaze' = 'poke';
+  /** When set, the head turns to look at this world point instead of the mat. */
+  private lookAt: Float64Array | null = null;
   private readonly tableY: number;
   private readonly tableCenter: Float64Array;
 
@@ -150,8 +154,16 @@ export class Autopilot {
     this.driver.claim();
     // seated head, looking down at the table
     const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
-    const yaw = Math.atan2(-f[0], -f[2]);
-    const q = quatMul(q4(), quatAxisAngle(q4(), v3(0, 1, 0), yaw), quatAxisAngle(q4(), v3(1, 0, 0), this.headPitch * RAD));
+    let yaw = Math.atan2(-f[0], -f[2]);
+    let pitch = this.headPitch * RAD;
+    if (this.lookAt) {
+      const dx = this.lookAt[0] - this.head[0];
+      const dy = this.lookAt[1] - this.head[1];
+      const dz = this.lookAt[2] - this.head[2];
+      yaw = Math.atan2(-dx, -dz);
+      pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    }
+    const q = quatMul(q4(), quatAxisAngle(q4(), v3(0, 1, 0), yaw), quatAxisAngle(q4(), v3(1, 0, 0), pitch));
     this.driver.setHead(this.head[0], this.head[1], this.head[2], q);
 
     const e = flow.expect;
@@ -270,6 +282,26 @@ export class Autopilot {
     const s = stage.press.get(id);
     if (!s) return;
     const w = s.group.getWorldPosition(new Vector3());
+    if (this.inputMode === 'gaze') {
+      // look at the stone until the gaze dwell presses it
+      this.lookAt = v3(w.x, w.y, w.z);
+      await flow.until(() => !s.shown || flow.expect.kind !== 'press', state.profile.dwellSeconds + 3);
+      this.lookAt = null;
+      return;
+    }
+    if (this.inputMode === 'dwell') {
+      // hover the fingertip 2.5 cm above the stone and hold still
+      const above = v3(w.x, w.y + s.height + 0.0095 + 0.025, w.z);
+      const a = this.actors[h];
+      const orient = pokeOrientation(state.station.forward, 38);
+      const point = pointAngles();
+      a.sway = 0;
+      await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.8);
+      await flow.until(() => !s.shown || flow.expect.kind !== 'press', state.profile.dwellSeconds + 2);
+      a.sway = 0.0012;
+      await this.toRest(h, 0.6);
+      return;
+    }
     const top = v3(w.x, w.y + s.height + 0.0095 - 0.004, w.z);
     await this.pokeAt(h, top);
   }

@@ -4,7 +4,8 @@
 import { createSystem, VisibilityState } from '@iwsdk/core';
 import { J } from '../core/joints.js';
 import { v3 } from '../core/math.js';
-import { Autopilot } from './emulation/autopilot.js';
+import { Autopilot, DEMO_PERSONA } from './emulation/autopilot.js';
+import { buildDemoRoom } from './render/demo-room.js';
 import { IwerHandDriver } from './emulation/iwer-driver.js';
 import { flow } from './flow/engine.js';
 import { state } from './state.js';
@@ -16,6 +17,10 @@ export class FlowSystem extends createSystem({}) {
   wantAutopilot = false;
   /** Table centre for the autopilot's seated pose (SEM office_small desk). */
   demoTable = v3(0.06, 0.75, -0.62);
+  /** Draw the procedural study; off when an SEM room supplies the scene. */
+  demoRoom = true;
+  /** Head height above the table for the seated autopilot, metres. */
+  seatHeight = 0.42;
 
   update(delta: number): void {
     const vs = this.world.visibilityState.peek();
@@ -25,8 +30,20 @@ export class FlowSystem extends createSystem({}) {
       this.tried = true;
       const driver = IwerHandDriver.tryCreate();
       if (driver && driver.install()) {
-        this.autopilot = new Autopilot(driver, this.demoTable);
+        const q = new URLSearchParams(location.search);
+        const input = q.get('input');
+        const persona = { ...DEMO_PERSONA, weakSide: input === 'left' ? ('right' as const) : ('left' as const) };
+        if (q.has('seat')) this.seatHeight = Number(q.get('seat'));
+        this.autopilot = new Autopilot(driver, this.demoTable, persona);
+        this.autopilot.head[1] = this.demoTable[1] + this.seatHeight;
+        if (input === 'dwell') this.autopilot.inputMode = 'dwell';
+        if (input === 'gaze') this.autopilot.inputMode = 'gaze';
         state.emulated = true;
+        if (this.demoRoom) {
+          this.world.createTransformEntity(
+            buildDemoRoom({ deskTop: [this.demoTable[0], this.demoTable[1], this.demoTable[2]] }),
+          );
+        }
       }
     }
     if (vs === VisibilityState.VisibleBlurred) return;
