@@ -1,16 +1,55 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no"
-    />
-    <link rel="icon" href="data:," />
-    <title>understudy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Understudy: mixed-reality mirror therapy on your own table. Your strong hand teaches the other one its part." />
+    <meta name="theme-color" content="#f5f0e8" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <title>Understudy</title>
+    <style>
+      @font-face { font-family: 'Atkinson Hyperlegible'; font-weight: 400; src: url('./fonts/atkinson-hyperlegible-latin-400-normal.woff2') format('woff2'); font-display: swap; }
+      @font-face { font-family: 'Atkinson Hyperlegible'; font-weight: 700; src: url('./fonts/atkinson-hyperlegible-latin-700-normal.woff2') format('woff2'); font-display: swap; }
+      :root { --paper: #f5f0e8; --ink: #1f2933; --muted: #5b6776; --lead: #e8a33d; --us: #4c9be8; }
+      html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; }
+      #scene-container { position: fixed; inset: 0; }
+      #landing { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 20%, #fffaf2, var(--paper) 70%); z-index: 10; padding: 16px; box-sizing: border-box; transition: opacity 0.4s; }
+      #landing.hidden { opacity: 0; pointer-events: none; }
+      .wrap { max-width: 620px; width: 100%; }
+      .mark { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+      .mark svg { width: 56px; height: 56px; }
+      h1 { font-size: clamp(34px, 7vw, 54px); margin: 0; letter-spacing: -0.5px; }
+      .tag { font-size: clamp(19px, 3.6vw, 24px); line-height: 1.35; margin: 10px 0 26px; }
+      .tag b { color: var(--us); }
+      button#start { font: 700 22px 'Atkinson Hyperlegible', system-ui; padding: 18px 34px; border-radius: 999px; border: 0; background: var(--ink); color: #fff; cursor: pointer; min-height: 60px; }
+      button#start:disabled { background: #b9b2a6; cursor: default; }
+      #status { font-size: 17px; color: var(--muted); margin-top: 16px; line-height: 1.5; }
+      #status a { color: var(--us); }
+      ul.facts { list-style: none; padding: 0; margin: 30px 0 0; display: grid; gap: 10px; font-size: 16px; color: var(--muted); }
+      ul.facts li::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--lead); margin-right: 10px; }
+      footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
+    </style>
   </head>
-  <body style="margin: 0">
+  <body>
     <div id="scene-container"></div>
+    <div id="landing">
+      <div class="wrap">
+        <div class="mark">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="20" cy="32" r="15" fill="#e8a33d"/><circle cx="44" cy="32" r="15" fill="#4c9be8"/><line x1="32" y1="6" x2="32" y2="58" stroke="#1f2933" stroke-width="3" stroke-dasharray="4 5"/></svg>
+          <h1>Understudy</h1>
+        </div>
+        <p class="tag">Your strong hand teaches the other one its part. Mirror therapy on your own table, <b>measured every day</b>.</p>
+        <button id="start" disabled>Start</button>
+        <p id="status">Checking your device.</p>
+        <ul class="facts">
+          <li>Hands only. Works with one hand, either side.</li>
+          <li>Everything stays on your headset. No account.</li>
+          <li>For a weak hand after stroke, a missing hand, or stiff morning hands.</li>
+        </ul>
+        <footer>Exercise and self-tracking. Not a medical device. Use alongside your care team's advice.</footer>
+      </div>
+    </div>
     <script type="module" src="/src/index.ts"></script>
   </body>
 </html>

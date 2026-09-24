@@ -17,7 +17,11 @@
         "anchors": true,
         "planeDetection": true,
         "meshDetection": true,
-        "hitTest": true
+        "hitTest": true,
+        "depthSensing": {
+          "required": false,
+          "usage": "gpu-optimized"
+        }
       }
     },
     "input": {
@@ -36,7 +40,7 @@
     },
     "features": {
       "locomotion": false,
-      "grabbing": true,
+      "grabbing": false,
       "physics": false,
       "sceneUnderstanding": true,
       "environmentRaycast": true,
@@ -48,7 +52,7 @@
   "dev": {
     "emulator": {
       "device": "metaQuest3",
-      "environment": "living_room"
+      "environment": "office_small"
     }
   }
 }

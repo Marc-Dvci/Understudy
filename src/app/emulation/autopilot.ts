@@ -1,0 +1,334 @@
+/**
+ * Acts out each step in the emulator with a simulated user, for the in-browser
+ * demo and for the film. The persona's left hand is weak (reduced range,
+ * slower, poor finger independence); the right hand is healthy. Every
+ * movement goes through the WebXR hand path, so the app measures the persona
+ * exactly as it would measure a person.
+ */
+import { Vector3 } from '@iwsdk/core';
+import { Handedness, J } from '../../core/joints.js';
+import { gauss, q4, quatAxisAngle, quatMul, RAD, rng, v3, Vec3 } from '../../core/math.js';
+import { HandActor, palmDownOrientation, pointAngles, pokeOrientation, thumbToFinger, wristForTip } from '../../sim/actor.js';
+import {
+  cloneAngles,
+  fistAngles,
+  HandAngles,
+  lerpAngles,
+  neutralAngles,
+  openAngles,
+  restAngles,
+} from '../../sim/handmodel.js';
+import { opposeAngles } from '../../sim/session.js';
+import { Expect, flow } from '../flow/engine.js';
+import { stage } from '../stage.js';
+import { leadHand, state, understudyHand } from '../state.js';
+import { IwerHandDriver } from './iwer-driver.js';
+
+export interface Persona {
+  /** Range fraction of the weak hand per finger (thumb..little). */
+  weakRange: number[];
+  weakSide: Handedness;
+  /** Drift the persona feels toward the virtual hand, metres. */
+  drift: number;
+}
+
+export const DEMO_PERSONA: Persona = {
+  weakRange: [0.45, 0.4, 0.35, 0.3, 0.25],
+  weakSide: 'left',
+  drift: 0.034,
+};
+
+export class Autopilot {
+  readonly driver: IwerHandDriver;
+  readonly actors: Record<Handedness, HandActor>;
+  private current: Expect | null = null;
+  private busy = false;
+  private readonly r = rng(2026);
+  private readonly persona: Persona;
+  private readonly refFromWorld = new Float32Array(16);
+  /** Seated head pose relative to the table. */
+  head = v3(0.06, 1.16, -0.16);
+  headPitch = -38;
+  private tapPhase = 0;
+  enabled = true;
+  private readonly tableY: number;
+  private readonly tableCenter: Float64Array;
+
+  constructor(driver: IwerHandDriver, tableCenter: Vec3, persona = DEMO_PERSONA) {
+    this.driver = driver;
+    this.persona = persona;
+    this.tableY = tableCenter[1];
+    this.tableCenter = v3(tableCenter[0], tableCenter[1], tableCenter[2]);
+    this.head = v3(tableCenter[0], tableCenter[1] + 0.42, tableCenter[2] + 0.5);
+    this.actors = {
+      left: new HandActor('left', v3(tableCenter[0] - 0.16, tableCenter[1] + 0.02, tableCenter[2] + 0.12), 0.186, 11),
+      right: new HandActor('right', v3(tableCenter[0] + 0.16, tableCenter[1] + 0.02, tableCenter[2] + 0.12), 0.19, 12),
+    };
+    for (const h of ['left', 'right'] as Handedness[]) {
+      const a = this.actors[h];
+      a.setImmediate(this.restFor(h), this.restPosition(h), palmDownOrientation(v3(0, 0, -1), h === 'left' ? -4 : 4));
+    }
+  }
+
+  /** Where a hand rests: the mat's resting place once the station exists, else on the table. */
+  restPosition(h: Handedness): Float64Array {
+    const s = state.station;
+    const u = h === 'left' ? -0.16 : 0.16;
+    let p: Float64Array;
+    if (s.ready) {
+      const w = stage.toWorld(u, -0.05, 0);
+      p = v3(w.x, w.y, w.z);
+    } else {
+      p = v3(this.tableCenter[0] + u, this.tableY, this.tableCenter[2] + 0.12);
+    }
+    // wrist height that puts relaxed fingertips on the surface
+    const a = this.actors?.[h];
+    const drop = a ? this.tipDrop(a, this.restFor(h)) : 0.02;
+    // the wrist sits behind the palm: shift toward the user by 9 cm
+    const f = s.ready ? s.forward : v3(0, 0, -1);
+    return v3(p[0] - f[0] * 0.09, p[1] + drop, p[2] - f[2] * 0.09);
+  }
+
+  private tipDrop(a: HandActor, angles: HandAngles): number {
+    const pose = a.build();
+    void pose;
+    const o = palmDownOrientation(state.station.ready ? state.station.forward : v3(0, 0, -1));
+    const tmp = new HandActor(a.handedness, v3(), a.length);
+    tmp.setImmediate(angles, v3(), o);
+    tmp.sway = 0;
+    const p = tmp.build();
+    let min = Infinity;
+    for (const j of [J.indexTip, J.middleTip, J.ringTip, J.pinkyTip, J.wrist]) min = Math.min(min, p[j * 16 + 13]);
+    return -min + 0.0085;
+  }
+
+  restFor(h: Handedness): HandAngles {
+    const a = restAngles();
+    if (h === this.persona.weakSide) {
+      a.fingers.forEach((f) => {
+        f.mcpFlex += 8;
+        f.pipFlex += 14;
+      });
+    }
+    return a;
+  }
+
+  /** The pose a hand reaches when asked for `target`. */
+  reach(h: Handedness, target: HandAngles): HandAngles {
+    if (h !== this.persona.weakSide) return cloneAngles(target);
+    const rest = this.restFor(h);
+    const out = neutralAngles();
+    const s = this.persona.weakRange;
+    out.thumb.cmcFlex = rest.thumb.cmcFlex + (target.thumb.cmcFlex - rest.thumb.cmcFlex) * s[0];
+    out.thumb.cmcAbd = rest.thumb.cmcAbd + (target.thumb.cmcAbd - rest.thumb.cmcAbd) * s[0];
+    out.thumb.mcpFlex = rest.thumb.mcpFlex + (target.thumb.mcpFlex - rest.thumb.mcpFlex) * s[0];
+    out.thumb.ipFlex = rest.thumb.ipFlex + (target.thumb.ipFlex - rest.thumb.ipFlex) * s[0];
+    for (let f = 0; f < 4; f++) {
+      const t = target.fingers[f];
+      const r = rest.fingers[f];
+      const k = s[f + 1];
+      out.fingers[f] = {
+        mcpFlex: r.mcpFlex + (t.mcpFlex - r.mcpFlex) * k,
+        mcpAbd: r.mcpAbd + (t.mcpAbd - r.mcpAbd) * k,
+        pipFlex: r.pipFlex + (t.pipFlex - r.pipFlex) * k,
+        dipFlex: r.dipFlex + (t.dipFlex - r.dipFlex) * k,
+      };
+    }
+    return out;
+  }
+
+  update(dt: number, playerMatrix: ArrayLike<number>): void {
+    if (!this.enabled) return;
+    invertRigid(this.refFromWorld, playerMatrix);
+    this.driver.claim();
+    // seated head, looking down at the table
+    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    const yaw = Math.atan2(-f[0], -f[2]);
+    const q = quatMul(q4(), quatAxisAngle(q4(), v3(0, 1, 0), yaw), quatAxisAngle(q4(), v3(1, 0, 0), this.headPitch * RAD));
+    this.driver.setHead(this.head[0], this.head[1], this.head[2], q);
+
+    const e = flow.expect;
+    if (e !== this.current && !this.busy) {
+      this.current = e;
+      void this.act(e);
+    }
+    this.continuous(e, dt);
+    for (const h of ['left', 'right'] as Handedness[]) {
+      const a = this.actors[h];
+      a.update(dt);
+      this.driver.setHand(h, a.build(), this.refFromWorld);
+    }
+  }
+
+  private async act(e: Expect): Promise<void> {
+    this.busy = true;
+    try {
+      switch (e.kind) {
+        case 'rest':
+          await Promise.all((['left', 'right'] as Handedness[]).map((h) => this.toRest(h, 0.9)));
+          break;
+        case 'press':
+          await this.poke(e.hand ?? this.pokeHand(), e.id);
+          break;
+        case 'move': {
+          const target = e.movement === 'open' ? openAngles() : e.movement === 'fist' ? fistAngles() : e.movement === 'oppose' ? opposeAngles() : null;
+          await Promise.all(
+            e.hands.map((h) =>
+              target
+                ? this.actors[h].move({ angles: this.reach(h, target) }, h === this.persona.weakSide ? 0.9 : 0.55)
+                : this.actors[h].move({ angles: this.restFor(h) }, 0.6),
+            ),
+          );
+          break;
+        }
+        case 'touch': {
+          const lead = leadHand();
+          const truth = stage.hands.mirror ? this.hiddenTip() : null;
+          if (!truth) break;
+          const n = state.mirror.plane.normal;
+          const shift = e.phase === 'post' ? this.persona.drift : 0.004;
+          const target = v3(
+            truth[0] + n[0] * shift + gauss(this.r) * 0.01,
+            state.station.height + 0.004,
+            truth[2] + n[2] * shift + gauss(this.r) * 0.01,
+          );
+          await this.pokeAt(lead, target);
+          break;
+        }
+        case 'piano': {
+          const h = leadHand();
+          const rest = this.restFor(h);
+          const t = cloneAngles(rest);
+          t.fingers[e.finger].mcpFlex = rest.fingers[e.finger].mcpFlex + 38;
+          t.fingers[e.finger].pipFlex = rest.fingers[e.finger].pipFlex + 26;
+          await flow.wait(0.5 + this.r() * 0.3);
+          await this.actors[h].move({ angles: t }, 0.35);
+          await this.actors[h].move({ angles: rest }, 0.35);
+          break;
+        }
+        case 'thumb-touch': {
+          const h = leadHand();
+          await flow.wait(0.3);
+          await this.actors[h].move({ angles: thumbToFinger(h, e.finger, this.actors[h].length) }, 0.55);
+          await this.actors[h].wait(0.25);
+          await this.actors[h].move({ angles: this.restFor(h) }, 0.4);
+          break;
+        }
+        case 'residual-touch': {
+          const h = leadHand();
+          const side = understudyHand() === 'left' ? -1 : 1;
+          const w = stage.toWorld(side * 0.17, -0.12, 0.004);
+          await this.pokeAt(h, v3(w.x, w.y, w.z), 1.6);
+          break;
+        }
+        default:
+          break;
+      }
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private pokeHand(): Handedness {
+    return state.profile.understudy ? leadHand() : 'right';
+  }
+
+  private hiddenTip(): Float64Array | null {
+    const p = state.mirror.restPose;
+    return v3(p[J.indexTip * 16 + 12], p[J.indexTip * 16 + 13], p[J.indexTip * 16 + 14]);
+  }
+
+  private async toRest(h: Handedness, seconds: number): Promise<void> {
+    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    await this.actors[h].move(
+      { angles: this.restFor(h), position: this.restPosition(h), orientation: palmDownOrientation(f, h === 'left' ? -4 : 4) },
+      seconds,
+    );
+  }
+
+  private async poke(h: Handedness, id: string): Promise<void> {
+    await flow.wait(0.8 + this.r() * 0.4);
+    const s = stage.press.get(id);
+    if (!s) return;
+    const w = s.group.getWorldPosition(new Vector3());
+    const top = v3(w.x, w.y + s.height + 0.0095 - 0.004, w.z);
+    await this.pokeAt(h, top);
+  }
+
+  private async pokeAt(h: Handedness, target: Float64Array, hold = 0.18): Promise<void> {
+    const a = this.actors[h];
+    const f = state.station.ready ? state.station.forward : v3(0, 0, -1);
+    const orient = pokeOrientation(f, 38);
+    const point = pointAngles();
+    const above = v3(target[0], target[1] + 0.06, target[2]);
+    await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.7);
+    await a.move({ position: wristForTip(a, point, orient, target) }, 0.28, 'out');
+    await a.wait(hold);
+    await a.move({ position: wristForTip(a, point, orient, above) }, 0.25);
+    await this.toRest(h, 0.7);
+  }
+
+  /** Movements that loop while a step lasts. */
+  private continuous(e: Expect, dt: number): void {
+    if (this.busy) return;
+    const lead = leadHand();
+    const a = this.actors[lead];
+    if (e.kind === 'mirror-play') {
+      this.tapPhase += dt;
+      const rest = this.restFor(lead);
+      if (e.style === 'open-close') {
+        const k = 0.5 - 0.5 * Math.cos((this.tapPhase * 2 * Math.PI) / 2.6);
+        const target = k < 0.5 ? lerpAngles(openAngles(), rest, k * 2) : lerpAngles(rest, fistAngles(), (k - 0.5) * 2);
+        a.setImmediate(target);
+      } else if (e.style === 'tap') {
+        const k = Math.max(0, Math.sin((this.tapPhase * 2 * Math.PI) / 0.9));
+        const t = cloneAngles(rest);
+        t.fingers.forEach((fg) => {
+          fg.mcpFlex = rest.fingers[0].mcpFlex - 18 * (1 - k) + 6;
+        });
+        a.setImmediate(t);
+        a.position[1] = this.restPosition(lead)[1] + 0.012 * (1 - k);
+      } else {
+        const t = cloneAngles(rest);
+        const finger = Math.floor(this.tapPhase / 0.7) % 4;
+        const k = Math.sin(((this.tapPhase % 0.7) / 0.7) * Math.PI);
+        t.fingers[finger].mcpFlex += 45 * k;
+        t.fingers[finger].pipFlex += 40 * k;
+        a.setImmediate(t);
+      }
+    } else if (e.kind === 'tap-rhythm') {
+      this.tapPhase += dt;
+      for (const h of ['left', 'right'] as Handedness[]) {
+        const pinch = thumbToFinger(h, 0, this.actors[h].length);
+        const open = this.reach(h, openAngles());
+        const k = 0.5 + 0.5 * Math.cos(this.tapPhase * 2 * Math.PI * 1.6);
+        // the weak hand taps with a smaller, fading amplitude
+        const amp = h === this.persona.weakSide ? Math.max(0.35, 0.8 - this.tapPhase * 0.03) : 1;
+        this.actors[h].setImmediate(lerpAngles(pinch, open, k * amp));
+      }
+    } else {
+      this.tapPhase = 0;
+    }
+  }
+}
+
+function invertRigid(out: Float32Array, m: ArrayLike<number>): void {
+  out[0] = m[0];
+  out[1] = m[4];
+  out[2] = m[8];
+  out[3] = 0;
+  out[4] = m[1];
+  out[5] = m[5];
+  out[6] = m[9];
+  out[7] = 0;
+  out[8] = m[2];
+  out[9] = m[6];
+  out[10] = m[10];
+  out[11] = 0;
+  out[12] = -(out[0] * m[12] + out[4] * m[13] + out[8] * m[14]);
+  out[13] = -(out[1] * m[12] + out[5] * m[13] + out[9] * m[14]);
+  out[14] = -(out[2] * m[12] + out[6] * m[13] + out[10] * m[14]);
+  out[15] = 1;
+}
+
+export { understudyHand };

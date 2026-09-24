@@ -43,3 +43,9 @@ pids/
 .cursor/mcp.json
 .vscode/mcp.json
 .codex/config.toml
+
+# local captures and scratch
+artifacts/
+tools/.goto
+tools/.capture
+validation/last-run.log
