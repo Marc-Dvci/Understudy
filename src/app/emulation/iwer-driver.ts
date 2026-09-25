@@ -159,16 +159,22 @@ function mul(out: Float32Array, a: ArrayLike<number>, b: ArrayLike<number>, ob: 
  * hidden; everything else in the emulator UI stays as it is.
  */
 function hideControlBanner(): void {
-  const hide = (root: ParentNode) => {
+  const sweep = (root: ParentNode) => {
     root.querySelectorAll('*').forEach((el) => {
       const e = el as HTMLElement;
-      if (e.childElementCount <= 2 && /Remote Control Active/i.test(e.textContent ?? '') && e.offsetHeight < 80) {
+      if (e.shadowRoot) sweep(e.shadowRoot);
+      const own = Array.from(e.childNodes)
+        .filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent)
+        .join('');
+      if (/Remote Control Active/i.test(own)) {
         e.style.display = 'none';
+        if (e.parentElement) e.parentElement.style.display = 'none';
       }
-      if (e.shadowRoot) hide(e.shadowRoot);
     });
   };
-  const run = () => hide(document);
-  run();
-  new MutationObserver(run).observe(document.body, { childList: true, subtree: true });
+  // the badge is created inside the dev UI's shadow root, out of reach of a
+  // body MutationObserver, so it is swept periodically
+  sweep(document);
+  setInterval(() => sweep(document), 500);
 }

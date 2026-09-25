@@ -49,3 +49,6 @@ artifacts/
 tools/.goto
 tools/.capture
 validation/last-run.log
+
+# rendered film clips
+film/footage/

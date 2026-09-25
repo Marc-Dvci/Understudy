@@ -41,6 +41,9 @@ export class FlowSystem extends createSystem({}) {
         const facing = face && face.length === 2 ? v3(face[0], 0, face[1]) : v3(0, 0, -1);
         this.autopilot = new Autopilot(driver, this.demoTable, persona, facing);
         this.autopilot.head[1] = this.demoTable[1] + this.seatHeight;
+        // films use a narrower camera than the headset's own field of view
+        const fov = Number(q.get('fov'));
+        if (fov > 20 && fov < 120) (driver.device as unknown as { fovy: number }).fovy = (fov * Math.PI) / 180;
         if (input === 'dwell') this.autopilot.inputMode = 'dwell';
         if (input === 'gaze') this.autopilot.inputMode = 'gaze';
         state.emulated = true;
