@@ -1,6 +1,6 @@
 # Validation report
 
-Generated from `validation/results.json` (2026-09-24T21:00:58.287Z), `validation/e2e-results.json` (2026-09-24T20:51:11.522Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
+Generated from `validation/results.json` (2026-09-24T21:00:58.287Z), `validation/e2e-results.json` (2026-09-25T08:26:37.622Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
 
 Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). No clinical effect is measured.
 
@@ -15,7 +15,7 @@ Everything here is simulated or emulated. The simulation checks the software's l
 | S5 | Warm-up stiffness recovery | Spearman >= 0.9 | 0.973 over 200 curves | pass |
 | S6 | Station in unknown rooms | found with <= 1 fallback, height within 1.5 cm | 60/60 cells; max height error 0.31 cm | pass |
 | S7 | Journey in every input mode | completes in each | lead-right ok, lead-left ok, dwell-only ok, gaze-only ok | pass |
-| S8 | Interactive elements inside the Glasses view | 100% | 1620 corner checks, worst 11.1 deg above gaze (limit 25) | pass |
+| S8 | Interactive elements inside the Glasses view | 100% | 1560 corner checks, worst 11.1 deg above gaze (limit 25) | pass |
 | S9 | Render budget | <= 80 draw calls, <= 120000 triangles | max 62 calls, 63192 triangles | pass |
 | S10 | Mirror vs independently built opposite hand | <= 2e-6 | float32 agreement (tests/mirror.test.ts) | pass |
 | S11 | Replays are deterministic | bit-identical | identical | pass |
@@ -90,7 +90,7 @@ Without labels the station comes from the resting fingertips; on the music room'
 |---|---|---|---|---|
 | lead-right | completed in 113 s | poke x3 | 62 | 63192 |
 | lead-left | completed in 113 s | poke x3 | 62 | 63192 |
-| dwell-only | completed in 116 s | dwell x3 | 62 | 63192 |
+| dwell-only | completed in 115 s | dwell x3 | 62 | 63192 |
 | gaze-only | completed in 114 s | gaze x3 | 62 | 63192 |
 
 Reading panels (reported, not part of S8): 100% of panel samples fit inside the Glasses view when looked at directly; 0% are fully visible while looking at the mat centre, so the card and board need a glance upward on the Glasses.
