@@ -48,10 +48,13 @@ export function drawHandPrint(views: PrintView[], title: string) {
       const cy = h * 0.8;
       const color = v.role === 'lead' ? PALETTE.lead : v.role === 'understudy' ? PALETTE.understudy : '#7a8a99';
       const maxLen = h * 0.44;
+      // labels sit on one arc past the longest petal, so a short petal never
+      // crowds its neighbours' labels
+      const labelR = maxLen + h * 0.08;
       // fan: little finger to index, left hand mirrored so thumbs point inward
       const dir = v.hand === 'left' ? 1 : -1;
       for (let f = 0; f < 4; f++) {
-        const angle = -Math.PI / 2 + dir * (0.52 - f * 0.34);
+        const angle = -Math.PI / 2 + dir * (0.63 - f * 0.42);
         const val = v.tam[f];
         const len = Number.isFinite(val) ? Math.max(0.05, Math.min(1, val / 280)) * maxLen * k : maxLen * 0.05;
         const err = Number.isFinite(v.mdc[f]) ? (v.mdc[f] / 280) * maxLen * k : 0;
@@ -71,15 +74,15 @@ export function drawHandPrint(views: PrintView[], title: string) {
         ctx.fill();
         ctx.restore();
         // label at the petal tip
-        const lx = cx + Math.cos(angle) * (len + 70);
-        const ly = cy + Math.sin(angle) * (len + 70);
+        const lx = cx + Math.cos(angle) * labelR;
+        const ly = cy + Math.sin(angle) * labelR;
         ctx.textAlign = 'center';
         ctx.fillStyle = PALETTE.ink;
-        ctx.font = `700 ${Math.round(h * 0.07)}px ${FONT}`;
+        ctx.font = `700 ${Math.round(h * 0.06)}px ${FONT}`;
         ctx.fillText(Number.isFinite(val) ? `${Math.round(val * k)}°` : '--', lx, ly);
-        ctx.font = `400 ${Math.round(h * 0.05)}px ${FONT}`;
+        ctx.font = `400 ${Math.round(h * 0.04)}px ${FONT}`;
         ctx.fillStyle = PALETTE.muted;
-        ctx.fillText(`${FINGER_NAMES[f]}${Number.isFinite(v.mdc[f]) ? ` ±${Math.round(v.mdc[f])}` : ''}`, lx, ly + h * 0.06);
+        ctx.fillText(`${FINGER_NAMES[f]}${Number.isFinite(v.mdc[f]) ? ` ±${Math.round(v.mdc[f])}` : ''}`, lx, ly + h * 0.05);
       }
       ctx.textAlign = 'center';
       ctx.fillStyle = color;

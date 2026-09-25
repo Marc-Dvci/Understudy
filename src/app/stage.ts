@@ -156,7 +156,9 @@ export class Stage {
       this.card.group.position.set(cu + cardShift, 0.058, -(MAT_D / 2 + 0.015));
       this.card.group.rotation.set(-0.72, 0, 0);
     }
-    this.board.group.position.set(cu, 0.07, -(MAT_D / 2 + 0.02));
+    // tilted back 0.7 rad, the board's lower edge rests on the table surface
+    const boardY = (this.board.height / 2) * Math.cos(0.7) + 0.004;
+    this.board.group.position.set(cu, boardY, -(MAT_D / 2 + 0.02));
     this.board.group.rotation.set(-0.7, 0, 0);
 
     this.mat.update(dt);

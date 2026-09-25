@@ -16,8 +16,10 @@ export class CanvasPanel {
   private t = 0;
   opacity = 0;
   target = 0;
+  readonly height: number;
 
   constructor(width: number, height: number, pxPerM = 2400, name = 'panel') {
+    this.height = height;
     this.c = makeCanvas(Math.round(width * pxPerM), Math.round(height * pxPerM));
     this.mesh = new Mesh(
       new PlaneGeometry(width, height),
