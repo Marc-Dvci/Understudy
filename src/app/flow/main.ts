@@ -125,14 +125,20 @@ export async function chooseProgram(): Promise<ProgramId> {
   return id.replace('prog-', '') as ProgramId;
 }
 
+const PROGRAM_SHORT: Record<ProgramId, string> = { understudy: 'Understudy', phantom: 'Phantom', warmup: 'Warm-up' };
+
 async function home(): Promise<void> {
   flow.step = 'home';
   stage.stone({ id: 'home-today', label: 'Today', sub: 'session', icon: 'next', accent: PALETTE.good });
   stage.stone({ id: 'home-progress', label: 'Progress', icon: 'chart' });
+  stage.stone({ id: 'home-program', label: 'Programme', sub: PROGRAM_SHORT[state.profile.program], icon: 'mirror' });
   stage.stone({ id: 'home-settings', label: 'Settings', icon: 'settings' });
   flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: 'Your table is ready.' });
-  const id = await flow.choose(['home-today', 'home-progress', 'home-settings'], 'home-today');
+  const id = await flow.choose(['home-today', 'home-progress', 'home-program', 'home-settings'], 'home-today');
   if (id === 'home-today') await runProgram(state.profile.program);
   else if (id === 'home-progress') await (await import('./progress.js')).showProgress();
-  else await (await import('./settings.js')).runSettings();
+  else if (id === 'home-program') {
+    state.profile.program = await chooseProgram();
+    await store.saveProfile(state.profile);
+  } else await (await import('./settings.js')).runSettings();
 }

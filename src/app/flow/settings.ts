@@ -28,7 +28,7 @@ export async function runSettings(): Promise<void> {
       drawMessage('Settings', [
         'Keep side keeps every stone and card on one side of the table.',
         'Dwell: hold a fingertip over a stone to press it without touching.',
-        'Looking at a stone for the dwell time presses it too.',
+        'With both hands out of view, looking at a stone presses it.',
       ]),
     );
     stage.board.show();

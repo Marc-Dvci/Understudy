@@ -13,6 +13,12 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   // on a computer the page carries Meta's WebXR emulator; there it plays the
   // demo with a simulated user instead of waiting for hands that are not there
   const emulated = !!(window as unknown as { __IWSDK_EMULATION_PROFILE?: { active?: boolean } }).__IWSDK_EMULATION_PROFILE?.active;
+  // ?seed=21 starts from three weeks of simulated sessions, so a single visit
+  // can show the hand-over and the progress charts of a later day
+  const sample = Number(new URLSearchParams(location.search).get('seed') ?? 0) > 0;
+  const later = sample
+    ? ' Three weeks of <strong>sample history</strong> are loaded, marked as simulated. <a href="?fresh">Start from day one instead</a>.'
+    : ' To see a later day, with the hand-over and progress charts, <a href="?fresh&amp;seed=21">start with three weeks of sample history</a>.';
   const check = async () => {
     let ar = false;
     try {
@@ -24,10 +30,13 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
       start.disabled = false;
       start.textContent = 'Watch the demo';
       status.innerHTML =
-        'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through the first session. To use Understudy yourself, open this page in the <strong>Meta Quest Browser</strong>.';
+        (sample
+          ? 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through a session three weeks in, over sample history marked as simulated. <a href="?fresh">Watch the first session instead</a>.'
+          : 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through the first session, or <a href="?fresh&amp;seed=21">a session three weeks in</a>.') +
+        ' To use Understudy yourself, open this page in the <strong>Meta Quest Browser</strong>.';
     } else if (ar) {
       start.disabled = false;
-      status.textContent = 'Sit at a table with both hands free. No controllers needed.';
+      status.innerHTML = `Sit at a table with both hands free. No controllers needed.${later}`;
     } else {
       start.disabled = true;
       status.innerHTML =
