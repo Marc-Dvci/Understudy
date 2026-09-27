@@ -4,7 +4,7 @@
  * the cheaper hand shader. It also builds the diagnostics code: a short
  * string a tester can read out that summarises how the device performed.
  */
-import { createSystem, MeshStandardMaterial } from '@iwsdk/core';
+import { createSystem } from '@iwsdk/core';
 import { APP_VERSION } from '../core/records.js';
 import { flow } from './flow/engine.js';
 import { stage } from './stage.js';
@@ -64,8 +64,11 @@ export class QualitySystem extends createSystem({}) {
       this.targetHz = 72;
       void s?.updateTargetFrameRate?.(72).catch(() => undefined);
     } else if (this.step === 3) {
-      const cheap = new MeshStandardMaterial({ color: stage.skin.color.clone(), roughness: 0.6 });
-      for (const h of Object.values(stage.hands)) h.setMaterial(cheap);
+      // the skin shader without its sheen and clearcoat lobes; tone, ghosts
+      // and occluders keep their own materials
+      stage.skin.sheen = 0;
+      stage.skin.clearcoat = 0;
+      stage.skin.needsUpdate = true;
     }
   }
 

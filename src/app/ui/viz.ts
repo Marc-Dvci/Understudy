@@ -217,14 +217,24 @@ export interface ProgressRow {
 }
 
 /** Progress lines with the usual-range band; only real changes get a mark. */
-export function drawProgress(rows: ProgressRow[], title: string) {
+export function drawProgress(rows: ProgressRow[], title: string, footnote?: string) {
   return (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => {
     backdrop(ctx, w, h);
     ctx.fillStyle = PALETTE.ink;
-    ctx.font = `700 ${Math.round(h * 0.09)}px ${FONT}`;
+    let size = Math.round(h * 0.09);
+    ctx.font = `700 ${size}px ${FONT}`;
+    while (ctx.measureText(title).width > w - 140 && size > h * 0.05) {
+      size -= 2;
+      ctx.font = `700 ${size}px ${FONT}`;
+    }
     ctx.fillText(title, 70, h * 0.14);
     const k = ease(t / 1.2);
-    const rowH = (h * 0.74) / Math.max(1, rows.length);
+    const bottom = footnote ? h * 0.84 : h * 0.94;
+    const rowH = (bottom - h * 0.2) / Math.max(1, rows.length);
+    const tagFont = `700 ${Math.round(Math.min(rowH * 0.3, h * 0.065))}px ${FONT}`;
+    ctx.font = tagFont;
+    // the tags get their own column, so a line never runs under its label
+    const tagW = Math.max(...['Real gain', 'Real drop', 'Steady', 'New'].map((x) => ctx.measureText(x).width));
     rows.forEach((r, i) => {
       const y0 = h * 0.2 + i * rowH;
       const vals = r.values.filter(Number.isFinite);
@@ -236,7 +246,7 @@ export function drawProgress(rows: ProgressRow[], title: string) {
       const val = Number.isFinite(r.latest) ? `${Math.round(r.latest)}${r.unit}` : '--';
       ctx.fillText(`${val}  ±${Math.round(r.mdc)}`, 70, y0 + rowH * 0.78);
       const x0 = w * 0.42;
-      const x1 = w - 180;
+      const x1 = w - 70 - tagW - 50;
       if (vals.length >= 2) {
         const lo = Math.min(...vals, r.band?.[0] ?? Infinity) - 5;
         const hi = Math.max(...vals, r.band?.[1] ?? -Infinity) + 5;
@@ -248,6 +258,7 @@ export function drawProgress(rows: ProgressRow[], title: string) {
         }
         ctx.strokeStyle = PALETTE.understudy;
         ctx.lineWidth = 6;
+        ctx.lineJoin = 'round';
         ctx.beginPath();
         const n = Math.max(2, Math.ceil(vals.length * k));
         for (let j = 0; j < n && j < vals.length; j++) {
@@ -263,11 +274,16 @@ export function drawProgress(rows: ProgressRow[], title: string) {
       const tag = r.change === 'improved' ? 'Real gain' : r.change === 'declined' ? 'Real drop' : r.change === 'steady' ? 'Steady' : 'New';
       const tagColor = r.change === 'improved' ? PALETTE.good : r.change === 'declined' ? PALETTE.caution : PALETTE.muted;
       ctx.fillStyle = tagColor;
-      ctx.font = `700 ${Math.round(Math.min(rowH * 0.3, h * 0.065))}px ${FONT}`;
+      ctx.font = tagFont;
       ctx.textAlign = 'right';
-      ctx.fillText(tag, w - 60, y0 + rowH * 0.55);
+      ctx.fillText(tag, w - 70, y0 + rowH * 0.55);
       ctx.textAlign = 'left';
     });
+    if (footnote) {
+      ctx.fillStyle = PALETTE.muted;
+      ctx.font = `400 ${Math.round(h * 0.052)}px ${FONT}`;
+      ctx.fillText(footnote, 70, h * 0.91);
+    }
   };
 }
 
@@ -333,8 +349,8 @@ export function drawMeter(shares: number[], stageLabel: string, attempt: number[
         ctx.globalAlpha = 1;
       }
       ctx.fillStyle = PALETTE.ink;
-      ctx.font = `700 ${Math.round(r * 0.8)}px ${FONT}`;
-      ctx.fillText(`${Math.round(v * 100)}`, cx, cy + r * 0.3);
+      ctx.font = `700 ${Math.round(r * 0.62)}px ${FONT}`;
+      ctx.fillText(`${Math.round(v * 100)}%`, cx, cy + r * 0.22);
       ctx.font = `400 ${Math.round(h * 0.12)}px ${FONT}`;
       ctx.fillStyle = PALETTE.muted;
       ctx.fillText(names[f], cx, h * 0.9);

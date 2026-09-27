@@ -25,6 +25,8 @@ export class StationSystem extends createSystem({}) {
   private anchor: XRAnchor | null = null;
   private anchorRequested = false;
   private restoreTried = false;
+  /** Seconds a restored anchor has had to report a pose that passes the checks. */
+  private restoreWait = -1;
   private readonly listeners: Listener[] = [];
   private readonly tmp = v3();
   searching = false;
@@ -65,6 +67,24 @@ export class StationSystem extends createSystem({}) {
     if (frame && ref && !this.restoreTried) {
       this.restoreTried = true;
       void this.restoreAnchor(frame);
+    }
+    // yesterday's anchor is used only if it is still a table in reach: the
+    // user may have moved to another room, or the headset lost its map
+    if (this.restoreWait >= 0 && this.anchor && frame && ref) {
+      this.restoreWait += delta;
+      const pose = frame.getPose(this.anchor.anchorSpace, ref);
+      if (pose && this.acceptRestored(pose.transform.matrix)) {
+        this.restoreWait = -1;
+        this.applyPose(pose.transform.matrix);
+        state.station.source = 'table-label';
+        state.station.anchored = true;
+        state.station.ready = true;
+        this.searching = false;
+        for (const fn of this.listeners) fn();
+        return;
+      }
+      if (this.restoreWait > 2.5) this.discardRestored();
+      else return;
     }
 
     // track stillness of flat hands
@@ -249,6 +269,15 @@ export class StationSystem extends createSystem({}) {
       state.station.anchored = true;
       const persistent = anchor as XRAnchor & { requestPersistentHandle?: () => Promise<string> };
       if (persistent.requestPersistentHandle) {
+        // the browser keeps few persistent anchors per site: free yesterday's first
+        const session = frame.session as XRSession & { deletePersistentAnchor?: (h: string) => Promise<void> };
+        let old: string | null = null;
+        try {
+          old = localStorage.getItem(ANCHOR_KEY);
+        } catch {
+          old = null;
+        }
+        if (old) await session.deletePersistentAnchor?.(old).catch(() => undefined);
         const handle = await persistent.requestPersistentHandle();
         try {
           localStorage.setItem(ANCHOR_KEY, handle);
@@ -259,6 +288,25 @@ export class StationSystem extends createSystem({}) {
     } catch {
       state.station.anchored = false;
     }
+  }
+
+  private acceptRestored(m: Float32Array): boolean {
+    this.player.updateWorldMatrix(true, false);
+    const pm = this.player.matrixWorld.elements;
+    const x = pm[0] * m[12] + pm[4] * m[13] + pm[8] * m[14] + pm[12];
+    const y = pm[1] * m[12] + pm[5] * m[13] + pm[9] * m[14] + pm[13];
+    const z = pm[2] * m[12] + pm[6] * m[13] + pm[10] * m[14] + pm[14];
+    const head = state.head;
+    if (y < 0.3 || y > head[1] - 0.15) return false;
+    return Math.hypot(x - head[0], z - head[2]) < 0.9;
+  }
+
+  private discardRestored(): void {
+    this.restoreWait = -1;
+    this.anchor?.delete?.();
+    this.anchor = null;
+    this.anchorRequested = false;
+    state.station.anchored = false;
   }
 
   private async restoreAnchor(frame: XRFrame): Promise<void> {
@@ -272,13 +320,15 @@ export class StationSystem extends createSystem({}) {
     if (!handle || !session.restorePersistentAnchor) return;
     try {
       const anchor = await session.restorePersistentAnchor(handle);
+      if (!this.searching || this.anchor) {
+        // the table was found while the anchor was loading
+        anchor.delete?.();
+        return;
+      }
+      // checked against the head in update() before the station moves there
       this.anchor = anchor;
       this.anchorRequested = true;
-      state.station.anchored = true;
-      state.station.source = 'table-label';
-      state.station.ready = true;
-      this.searching = false;
-      for (const fn of this.listeners) fn();
+      this.restoreWait = 0;
     } catch {
       try {
         localStorage.removeItem(ANCHOR_KEY);

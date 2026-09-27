@@ -45,6 +45,7 @@ export const LINES: Record<string, string> = {
   'session-done': 'Well done. That is today\'s session.',
   'come-back': 'Come back tomorrow morning. Your table will be here.',
   'home-back': 'Welcome back. Your table is ready.',
+  'progress-first': 'Day one is saved. Tomorrow, the same hand print shows your first change.',
   'progress-intro': 'Here is how your hand is changing. Only changes bigger than the margin of error are marked.',
   'settings-intro': 'Settings. Everything here works with one hand.',
   'paused': 'Paused. Touch continue when you are ready.',

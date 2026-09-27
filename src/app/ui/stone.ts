@@ -65,7 +65,7 @@ export class Stone {
   constructor(opts: StoneOptions) {
     this.id = opts.id;
     this.opts = opts;
-    this.radius = opts.radius ?? 0.045;
+    this.radius = opts.radius ?? 0.05;
     this.bodyMat = new MeshStandardMaterial({ color: new Color('#f4efe6'), roughness: 0.72, metalness: 0 });
     this.body = new Mesh(stoneGeometry(this.radius, this.height), this.bodyMat);
     this.group.add(this.body);
@@ -101,27 +101,37 @@ export class Stone {
     ctx.clearRect(0, 0, W, W);
     const accent = this.opts.accent ?? PALETTE.understudy;
     const hasIcon = !!this.opts.icon;
-    if (hasIcon) drawIcon(ctx, this.opts.icon!, W / 2, W * (this.opts.label ? 0.34 : 0.5), W * 0.36, accent);
+    const hasSub = !!this.opts.sub;
+    // with a second line the icon shrinks, so all three fit inside the round face
+    if (hasIcon) {
+      const iconY = this.opts.label ? (hasSub ? 0.25 : 0.34) : 0.5;
+      drawIcon(ctx, this.opts.icon!, W / 2, W * iconY, W * (hasSub ? 0.26 : 0.36), accent);
+    }
     if (this.opts.label) {
       ctx.fillStyle = PALETTE.ink;
       ctx.textAlign = 'center';
-      let size = 92;
+      let size = 104;
       ctx.font = `700 ${size}px ${FONT}`;
       let lines = wrap(ctx, this.opts.label, W * 0.78);
-      while ((lines.length > 2 || lines.some((l) => ctx.measureText(l).width > W * 0.8)) && size > 48) {
+      while ((lines.length > 2 || lines.some((l) => ctx.measureText(l).width > W * 0.8)) && size > 56) {
         size -= 6;
         ctx.font = `700 ${size}px ${FONT}`;
         lines = wrap(ctx, this.opts.label, W * 0.78);
       }
-      let y = hasIcon ? W * 0.66 : W * 0.5 - ((lines.length - 1) * size * 1.05) / 2 + size * 0.35;
+      let y = hasIcon ? W * (hasSub ? 0.55 : 0.66) : W * 0.5 - ((lines.length - 1) * size * 1.05) / 2 + size * 0.35;
       for (const l of lines) {
         ctx.fillText(l, W / 2, y);
         y += size * 1.05;
       }
       if (this.opts.sub) {
-        ctx.font = `400 ${Math.round(size * 0.55)}px ${FONT}`;
+        let sub = Math.round(size * 0.66);
+        ctx.font = `700 ${sub}px ${FONT}`;
+        while (ctx.measureText(this.opts.sub).width > W * 0.7 && sub > 40) {
+          sub -= 3;
+          ctx.font = `700 ${sub}px ${FONT}`;
+        }
         ctx.fillStyle = PALETTE.muted;
-        ctx.fillText(this.opts.sub, W / 2, y - size * 0.2);
+        ctx.fillText(this.opts.sub, W / 2, y - size * 0.12);
       }
       ctx.textAlign = 'left';
     }

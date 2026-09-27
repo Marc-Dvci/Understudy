@@ -53,6 +53,16 @@ export function makeGhostMaterial(color = '#bfe3ff', opacity = 0.28): MeshStanda
   });
 }
 
+/**
+ * Writes depth only. Drawn first at the tracked hands, it keeps virtual
+ * content behind the user's real fingers, which passthrough then shows.
+ */
+export function makeOccluderMaterial(): MeshBasicMaterial {
+  const m = new MeshBasicMaterial({ colorWrite: false, depthWrite: true });
+  m.name = 'hand-occluder';
+  return m;
+}
+
 /** Linen cloth that hides the real hand in passthrough. */
 export function makeClothMaterial(): MeshPhysicalMaterial {
   return new MeshPhysicalMaterial({

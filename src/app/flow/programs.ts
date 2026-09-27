@@ -20,11 +20,17 @@ import { flow } from './engine.js';
 import { flowerExercise, pianoExercise, tapExercise, thumbExercise } from './exercises.js';
 import { newRecord } from './main.js';
 import { showProgress } from './progress.js';
-import { handPrint, mirrorPlay, painCheck, recordPrint, showHandPrint, startMirror, stopMirror } from './steps.js';
+import { handPrint, mirrorPlay, painCheck, PrintResult, recordPrint, showHandPrint, startMirror, stopMirror } from './steps.js';
 import { services } from './services.js';
 
-export async function runProgram(p: ProgramId): Promise<void> {
-  if (p === 'understudy') return understudySession();
+/** A Hand Print taken moments ago in the same visit, carried into the session. */
+export interface CarriedPrint {
+  record: SessionRecord;
+  print: PrintResult;
+}
+
+export async function runProgram(p: ProgramId, carried?: CarriedPrint): Promise<void> {
+  if (p === 'understudy') return understudySession(carried);
   if (p === 'phantom') return phantomSession();
   return warmupSession();
 }
@@ -47,16 +53,20 @@ async function finish(record: SessionRecord, lines: string[]): Promise<void> {
 
 // ---------------------------------------------------------------- Understudy
 
-async function understudySession(): Promise<void> {
+async function understudySession(carried?: CarriedPrint): Promise<void> {
   flow.step = 'understudy';
   if (!state.profile.understudy) state.profile.understudy = 'left';
   await stage.setUnderstudySide(services.base);
-  const record = newRecord('understudy');
-  const history = (await store.sessions()).filter((r) => r.completed);
-  const pr = await handPrint(['left', 'right']);
-  recordPrint(record, pr);
-  await showHandPrint(pr, history);
-  stage.board.hide();
+  // on the first visit the tour's Hand Print is today's: the session goes
+  // straight on to the exercises instead of measuring the same hands again
+  const record = carried?.record ?? newRecord('understudy');
+  const history = (await store.sessions()).filter((r) => r.completed && r.id !== record.id);
+  if (!carried) {
+    const pr = await handPrint(['left', 'right']);
+    recordPrint(record, pr);
+    await showHandPrint(pr, history);
+    stage.board.hide();
+  }
 
   // shares from every session including today's
   const all = [...history, record];
@@ -84,7 +94,7 @@ async function understudySession(): Promise<void> {
   const stageLabel = record.stage === 'watch' ? 'Watch' : record.stage === 'perform' ? 'Perform' : 'Rehearse';
   const drawLive = () => {
     const gates = [0, 1, 2, 3, 4].map((f) => Math.max(mirror.handDetector.gate, mirror.fingerDetectors[f].gate));
-    stage.meter.draw(drawMeter(shares, `${stageLabel}: how much is you`, gates));
+    stage.meter.draw(drawMeter(shares, `${stageLabel}: your own share`, gates));
   };
   drawLive();
   stage.meter.show();
@@ -202,7 +212,8 @@ async function recogniseBlock(seed: string): Promise<ReturnType<typeof scoreLate
   await flow.wait(2.5);
   stage.layoutStones(['lat-left', 'lat-right']);
   const answers: LateralityAnswer[] = [];
-  const center = stage.toWorld(0, 0.02, 0.1);
+  // on the near half of the mat, low enough that no rotation reaches the card
+  const center = stage.toWorld(0, -0.04, 0.085);
   for (let i = 0; i < stim.length; i++) {
     const s = stim[i];
     const model = s.hand === 'left' ? stage.hands.demoLeft : stage.hands.demoRight;

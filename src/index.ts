@@ -55,7 +55,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   const start = () => {
     if (started) return;
     started = true;
-    stage.trackedStyle = flowSystem.autopilot || state.emulated ? 'skin' : 'hidden';
+    stage.trackedStyle = flowSystem.autopilot || state.emulated ? 'skin' : 'occluder';
     void runApp({ fresh: freshFlag || params.has('fresh') || params.has('demo') || demoMode }).catch((e) => console.error('[understudy] flow failed', e));
   };
   world.visibilityState.subscribe((v) => {

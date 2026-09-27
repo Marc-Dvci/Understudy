@@ -92,7 +92,7 @@ async function firstVisit(records: SessionRecord[]): Promise<void> {
   await store.saveSession(record);
   state.profile.program = await chooseProgram();
   await store.saveProfile(state.profile);
-  await runProgram(state.profile.program);
+  await runProgram(state.profile.program, side !== 'both' ? { record, print: pr } : undefined);
 }
 
 async function feltQuestion(): Promise<string> {

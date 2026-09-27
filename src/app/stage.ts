@@ -9,14 +9,20 @@ import { sound } from './audio.js';
 import { Cloth } from './render/cloth.js';
 import { HandModel } from './render/hand-model.js';
 import { Mat, MAT_D, MAT_W } from './render/mat.js';
-import { makeGhostMaterial, makeSkinMaterial, PALETTE } from './render/materials.js';
+import { makeGhostMaterial, makeOccluderMaterial, makeSkinMaterial, PALETTE } from './render/materials.js';
 import { leadHand, state, understudyHand } from './state.js';
 import { Card } from './ui/card.js';
 import { CanvasPanel } from './ui/panel.js';
 import { PressInput } from './ui/press.js';
 import { Stone, StoneOptions } from './ui/stone.js';
 
-export type TrackedHandStyle = 'skin' | 'ghost' | 'hidden';
+/**
+ * How the tracked hands are drawn. On a headset the user sees their own
+ * hands in passthrough, so the models only write depth ('occluder'): the mat,
+ * stones and cards then stay behind the real fingers instead of covering
+ * them. The emulator has no real hands to see, so it draws skin.
+ */
+export type TrackedHandStyle = 'skin' | 'ghost' | 'occluder' | 'hidden';
 
 export class Stage {
   readonly root = new Group();
@@ -31,6 +37,9 @@ export class Stage {
   readonly skin = makeSkinMaterial(2);
   readonly ghost = makeGhostMaterial('#cfe6ff', 0.3);
   readonly leadGhost = makeGhostMaterial('#ffe2b8', 0.22);
+  /** The hand from two weeks ago in Progress: a clear blue beside skin. */
+  readonly historyGhost = makeGhostMaterial('#5aa6f0', 0.42);
+  readonly occluder = makeOccluderMaterial();
   hands!: {
     left: HandModel;
     right: HandModel;
@@ -125,6 +134,12 @@ export class Stage {
     });
   }
 
+  private leanOnTable(g: Group, height: number, tilt: number, u: number): void {
+    const half = height / 2;
+    g.position.set(u, half * Math.cos(tilt) + 0.004, -(MAT_D / 2 + 0.012) - half * Math.sin(tilt));
+    g.rotation.set(-tilt, 0, 0);
+  }
+
   hideStones(): void {
     this.press.hideAll();
   }
@@ -151,15 +166,14 @@ export class Stage {
     // Once on the table it stands low behind the mat and leans back, so it
     // stays inside the Meta VR Glasses view (25 degrees up) of the mat. With
     // the meter up, the card steps away from it.
+    // Card and board lean back about their centres, so each centre sits half
+    // a height up and back from a lower edge that rests just behind the mat,
+    // clear of the far row of stones.
     if (this.card.group.parent === this.table) {
       const cardShift = this.meter.target > 0 ? -(understudyHand() === 'left' ? -1 : 1) * 0.07 : 0;
-      this.card.group.position.set(cu + cardShift, 0.058, -(MAT_D / 2 + 0.015));
-      this.card.group.rotation.set(-0.72, 0, 0);
+      this.leanOnTable(this.card.group, this.card.height, 0.72, cu + cardShift);
     }
-    // tilted back 0.7 rad, the board's lower edge rests on the table surface
-    const boardY = (this.board.height / 2) * Math.cos(0.7) + 0.004;
-    this.board.group.position.set(cu, boardY, -(MAT_D / 2 + 0.02));
-    this.board.group.rotation.set(-0.7, 0, 0);
+    this.leanOnTable(this.board.group, this.board.height, 0.7, cu);
 
     this.mat.update(dt);
     this.cloth.update(dt);
@@ -187,7 +201,11 @@ export class Stage {
       const show = style !== 'hidden' && t.lostFor < 0.3 && !hiddenUnderCloth;
       model.setVisible(show);
       if (show) {
-        model.setMaterial(style === 'skin' ? this.skin : side === leadHand() ? this.leadGhost : this.ghost);
+        const occlude = style === 'occluder';
+        model.setMaterial(occlude ? this.occluder : style === 'skin' ? this.skin : side === leadHand() ? this.leadGhost : this.ghost);
+        // occluders draw first and a little wide, so a finger edge never shows the mat through it
+        model.setRenderOrder(occlude ? -10 : 2);
+        model.scale = occlude ? 1.06 : 1;
         model.apply(t.pose);
       }
     }
