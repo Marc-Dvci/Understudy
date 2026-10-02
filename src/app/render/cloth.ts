@@ -3,15 +3,37 @@
  * opaque, hides the real hand in passthrough. Hand tracking keeps seeing the
  * hand underneath, so the app measures what the user no longer sees.
  */
-import { BufferAttribute, Float32BufferAttribute, Group, Mesh, PlaneGeometry } from '@iwsdk/core';
+import { BufferAttribute, Float32BufferAttribute, Group, LinearMipmapLinearFilter, Mesh, PlaneGeometry } from '@iwsdk/core';
 import { rng } from '../../core/math.js';
 import { makeCanvas } from '../ui/text.js';
 import { makeClothMaterial } from './materials.js';
 
-const LEN = 0.3;
-const WID = 0.18;
-const NX = 44;
-const NZ = 64;
+const LEN = 0.34;
+const WID = 0.24;
+const NX = 52;
+const NZ = 72;
+/** The hand-shaped crown under the cloth keeps a hand's size whatever the cloth's. */
+const HAND_W = 0.18 * 0.34;
+const HAND_L = 0.3 * 0.38;
+/** The cloth sits this far ahead of the hand's centre, so open fingers stay on it. */
+const AHEAD = 0.03;
+const CLOTH_COLOR = '#8098b3';
+
+/** Rounded, slightly uneven hem outline in a w x h canvas, scaled by k about the centre. */
+function hemPath(ctx: CanvasRenderingContext2D, w: number, h: number, k: number): void {
+  ctx.beginPath();
+  for (let i = 0; i <= 96; i++) {
+    const t = (i / 96) * Math.PI * 2;
+    const c = Math.cos(t);
+    const s2 = Math.sin(t);
+    const rr = k * (1 + 0.01 * Math.sin(t * 5 + 1) + 0.005 * Math.sin(t * 11));
+    const px = w / 2 + Math.sign(c) * Math.pow(Math.abs(c), 0.45) * (w / 2 - 4) * rr;
+    const py = h / 2 + Math.sign(s2) * Math.pow(Math.abs(s2), 0.45) * (h / 2 - 4) * rr;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
 
 export class Cloth {
   readonly group = new Group();
@@ -36,8 +58,8 @@ export class Cloth {
       const x = this.base[i * 3];
       const z = this.base[i * 3 + 2];
       // the hand under the cloth: an ellipse, fuller over the palm (z > 0 is the wrist side)
-      const ex = x / (WID * 0.34);
-      const ez = (z + 0.01) / (LEN * 0.38);
+      const ex = x / HAND_W;
+      const ez = (z - AHEAD + 0.01) / HAND_L;
       const d = Math.sqrt(ex * ex + ez * ez);
       const crown = this.bulge * smooth(Math.max(0, 1 - d) * 1.5);
       // fabric falls away from the hand in radial folds that deepen outward
@@ -61,28 +83,47 @@ export class Cloth {
       const y = this.draped[i * 3 + 1];
       const k = 0.86 + 0.14 * Math.min(1, y / this.bulge + 0.2);
       colors[i * 3] = k;
-      colors[i * 3 + 1] = k * 0.98;
-      colors[i * 3 + 2] = k * 0.95;
+      colors[i * 3 + 1] = k;
+      colors[i * 3 + 2] = k;
     }
     geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
     const mat = makeClothMaterial();
     mat.vertexColors = true;
-    // rounded, slightly uneven hem
-    const hem = makeCanvas(128, 256);
-    hem.ctx.fillStyle = '#000';
-    hem.ctx.fillRect(0, 0, 128, 256);
-    hem.ctx.fillStyle = '#fff';
-    hem.ctx.beginPath();
-    for (let i = 0; i <= 64; i++) {
-      const t = (i / 64) * Math.PI * 2;
-      const c = Math.cos(t);
-      const s2 = Math.sin(t);
-      const rr = 1 + 0.035 * Math.sin(t * 7 + 1) + 0.02 * Math.sin(t * 13);
-      const px = 64 + Math.sign(c) * Math.pow(Math.abs(c), 0.55) * 60 * rr;
-      const py = 128 + Math.sign(s2) * Math.pow(Math.abs(s2), 0.55) * 124 * rr;
-      if (i === 0) hem.ctx.moveTo(px, py);
-      else hem.ctx.lineTo(px, py);
+    // felt: colour, loose fibres, a stitched hem a centimetre in; then the hem outline
+    const felt = makeCanvas(768, 1088);
+    {
+      const { ctx } = felt;
+      const W = 768;
+      const H = 1088;
+      ctx.fillStyle = CLOTH_COLOR;
+      ctx.fillRect(0, 0, W, H);
+      const r2 = rng(17);
+      for (let i = 0; i < 14000; i++) {
+        const light = r2() < 0.5;
+        ctx.fillStyle = light ? 'rgba(235,242,250,0.10)' : 'rgba(30,45,70,0.10)';
+        const len = 4 + r2() * 8;
+        if (r2() < 0.5) ctx.fillRect(r2() * W, r2() * H, len, 1.5);
+        else ctx.fillRect(r2() * W, r2() * H, 1.5, len);
+      }
+      ctx.save();
+      ctx.setLineDash([16, 12]);
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(240,245,250,0.9)';
+      hemPath(ctx, W, H, 0.92);
+      ctx.stroke();
+      ctx.restore();
+      // mipmaps: the fibres would shimmer at a seated viewing distance without them
+      felt.texture.generateMipmaps = true;
+      felt.texture.minFilter = LinearMipmapLinearFilter;
+      felt.texture.needsUpdate = true;
     }
+    mat.map = felt.texture;
+    const hem = makeCanvas(384, 544);
+    hem.ctx.fillStyle = '#000';
+    hem.ctx.fillRect(0, 0, 384, 544);
+    hem.ctx.fillStyle = '#fff';
+    hemPath(hem.ctx, 384, 544, 1);
     hem.ctx.fill();
     hem.texture.needsUpdate = true;
     mat.alphaMap = hem.texture;
@@ -97,7 +138,8 @@ export class Cloth {
 
   /** Places the cloth over a hand: centre on the table and the hand's forward direction. */
   place(cx: number, cy: number, cz: number, fx: number, fz: number): void {
-    this.group.position.set(cx, cy, cz);
+    const fl = Math.hypot(fx, fz) || 1;
+    this.group.position.set(cx + (fx / fl) * AHEAD, cy, cz + (fz / fl) * AHEAD);
     this.group.rotation.set(0, Math.atan2(-fx, -fz), 0);
   }
 

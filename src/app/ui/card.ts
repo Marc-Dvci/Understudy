@@ -133,7 +133,14 @@ export class Card {
       }
     }
     if (c.hint) {
-      ctx.font = `400 ${Math.round(H * 0.085)}px ${FONT}`;
+      // one line, shrunk to fit beside the step dots
+      const room = maxW - (c.step ? (c.step.total - 1) * 34 + 50 : 0);
+      let hintSize = Math.round(H * 0.085);
+      ctx.font = `400 ${hintSize}px ${FONT}`;
+      while (ctx.measureText(c.hint).width > room && hintSize > H * 0.05) {
+        hintSize -= 2;
+        ctx.font = `400 ${hintSize}px ${FONT}`;
+      }
       ctx.fillStyle = PALETTE.muted;
       ctx.fillText(c.hint, x, H - 70);
     }

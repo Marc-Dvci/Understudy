@@ -50,6 +50,7 @@ export const LINES: Record<string, string> = {
   'settings-intro': 'Settings. Everything here works with one hand.',
   'paused': 'Paused. Touch continue when you are ready.',
   'lost-hands': 'I cannot see your hands. Move them into view, or look at a stone to choose it.',
+  controllers: 'Put the controllers down. Understudy works with your hands.',
 };
 
 export type LineId = keyof typeof LINES;

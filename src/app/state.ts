@@ -85,6 +85,8 @@ export interface AppState {
   headForward: Float64Array;
   /** Running in the IWER emulator with synthetic hands. */
   emulated: boolean;
+  /** A controller is held instead of a tracked hand (hand tracking is then off on Quest). */
+  controllers: boolean;
   immersive: boolean;
   time: number;
   /** Hand opening at today's fist and full open, from the Hand Print; exercises scale to it. */
@@ -120,6 +122,7 @@ export const state: AppState = {
   head: v3(0, 1.2, 0),
   headForward: v3(0, 0, -1),
   emulated: false,
+  controllers: false,
   immersive: false,
   time: 0,
   openingRange: { left: { closed: 0.42, open: 0.72 }, right: { closed: 0.42, open: 0.72 } },

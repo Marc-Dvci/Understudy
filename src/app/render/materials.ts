@@ -63,14 +63,19 @@ export function makeOccluderMaterial(): MeshBasicMaterial {
   return m;
 }
 
-/** Linen cloth that hides the real hand in passthrough. */
+/**
+ * Felt cloth that hides the real hand in passthrough. A muted Understudy blue:
+ * it stands apart from the mat and the table, and the skin-toned mirror hand
+ * reads clearly on it.
+ */
 export function makeClothMaterial(): MeshPhysicalMaterial {
   return new MeshPhysicalMaterial({
-    color: new Color('#e4d9c6'),
-    roughness: 0.92,
+    // the colour is painted into the felt map, so the stitches can be lighter than the cloth
+    color: new Color('#ffffff'),
+    roughness: 0.95,
     sheen: 1,
-    sheenRoughness: 0.8,
-    sheenColor: new Color('#fff8ee'),
+    sheenRoughness: 0.7,
+    sheenColor: new Color('#dfe8f3'),
     side: DoubleSide,
   });
 }

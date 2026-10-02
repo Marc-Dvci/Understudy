@@ -8,7 +8,18 @@ import { Autopilot, DEMO_PERSONA } from './emulation/autopilot.js';
 import { buildDemoRoom } from './render/demo-room.js';
 import { IwerHandDriver } from './emulation/iwer-driver.js';
 import { flow } from './flow/engine.js';
+import { sound } from './audio.js';
+import { stage } from './stage.js';
 import { state } from './state.js';
+import { CardContent } from './ui/card.js';
+
+/** Card notices shown while the app cannot see a hand; each line is spoken once a session. */
+const HINTS = {
+  controllers: 'Put the controllers down to use your hands.',
+  gaze: 'Hands out of view? Look at a stone to choose it.',
+  lost: 'I cannot see your hands. Move them into view.',
+};
+const HINT_TEXT = new Set<string>(Object.values(HINTS));
 
 export class FlowSystem extends createSystem({}) {
   autopilot: Autopilot | null = null;
@@ -60,6 +71,42 @@ export class FlowSystem extends createSystem({}) {
     if (this.autopilot) {
       this.player.updateWorldMatrix(true, false);
       this.autopilot.update(dt, this.player.matrixWorld.elements);
+    }
+    this.watchHands();
+  }
+
+  private spoken = new Set<string>();
+  private hidden: CardContent | null = null;
+
+  /**
+   * Tells the user when no hand is tracked: controllers in hand (Quest then
+   * turns hand tracking off), or hands out of view, where a stone can still be
+   * chosen by looking at it. The notice replaces the card's body line; the step's
+   * title stays on screen.
+   */
+  private watchHands(): void {
+    const lost = Math.min(state.hands.left.lostFor, state.hands.right.lostFor);
+    const pressing = flow.expect.kind === 'press';
+    let key: keyof typeof HINTS | null = null;
+    if (state.controllers && lost > 0.5) key = 'controllers';
+    else if (pressing && lost > stage.press.gazeAutoAfter) key = 'gaze';
+    else if (!pressing && flow.expect.kind !== 'idle' && lost > 3) key = 'lost';
+    const card = stage.card;
+    if (card.targetOpacity === 0) return;
+    const cur = card.text;
+    const showing = !!cur.body && HINT_TEXT.has(cur.body);
+    if (key && cur.body !== HINTS[key]) {
+      // the notice takes the body line, in full size; the step's own line comes back after
+      if (!showing) this.hidden = cur;
+      card.show({ ...cur, body: HINTS[key] });
+      const line = key === 'controllers' ? 'controllers' : 'lost-hands';
+      if (!this.spoken.has(line)) {
+        this.spoken.add(line);
+        void sound.say(line);
+      }
+    } else if (!key && showing) {
+      card.show(this.hidden && this.hidden.title === cur.title ? this.hidden : { ...cur, body: undefined });
+      this.hidden = null;
     }
   }
 }

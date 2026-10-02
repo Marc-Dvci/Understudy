@@ -4,7 +4,7 @@
  */
 import { Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, ShapeGeometry, Shape } from '@iwsdk/core';
 import { rng } from '../../core/math.js';
-import { makeCanvas, roundRect } from '../ui/text.js';
+import { FONT, makeCanvas, roundRect } from '../ui/text.js';
 import { PALETTE } from './materials.js';
 
 export const MAT_W = 0.64;
@@ -38,6 +38,8 @@ export class Mat {
   showMidline = false;
   restLeft = { u: -0.16, v: -0.05 };
   restRight = { u: 0.16, v: -0.05 };
+  /** Words printed on the mat at (u, v), for example under the progress hands. */
+  labels: { u: number; v: number; text: string; color: string; align?: CanvasTextAlign }[] = [];
   private dirty = true;
   private pulse = 0;
 
@@ -163,6 +165,15 @@ export class Mat {
         ctx.stroke();
         ctx.restore();
       }
+    }
+    for (const l of this.labels) {
+      const [x, y] = toPx(l.u, l.v);
+      ctx.font = `700 36px ${FONT}`;
+      ctx.textAlign = l.align ?? 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text, x, y);
+      ctx.textAlign = 'start';
     }
     texture.needsUpdate = true;
   }

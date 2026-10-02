@@ -11,6 +11,7 @@ import { state, TrackedHand } from './state.js';
 const MAX_WRIST_SPEED = 4; // m/s; faster jumps are tracking glitches
 const BONE_TOLERANCE = 0.15;
 const CALIBRATION_FRAMES = 45;
+const RELEARN_AFTER = 1; // seconds of rejected skeletons before bone lengths are learnt again
 
 export class HandInputSystem extends createSystem({}) {
   private readonly raw = new Float32Array(POSE_FLOATS);
@@ -19,6 +20,7 @@ export class HandInputSystem extends createSystem({}) {
   private readonly prevTip = { left: v3(), right: v3() };
   private readonly tmp = v3();
   private readonly seen = { left: false, right: false };
+  private readonly rejected = { left: 0, right: 0 };
 
   update(delta: number, time: number): void {
     state.time = time;
@@ -45,7 +47,9 @@ export class HandInputSystem extends createSystem({}) {
     if (frame && ref && session) {
       this.player.updateWorldMatrix(true, false);
       const pm = this.player.matrixWorld.elements;
+      let controllers = false;
       for (const source of session.inputSources) {
+        if (!source.hand && source.gamepad && (source.handedness === 'left' || source.handedness === 'right')) controllers = true;
         if (!source.hand || (source.handedness !== 'left' && source.handedness !== 'right')) continue;
         let spaces = this.spaces.get(source);
         if (!spaces) {
@@ -59,6 +63,7 @@ export class HandInputSystem extends createSystem({}) {
         for (let j = 0; j < JOINT_COUNT; j++) mulMat4(hand.pose, pm, this.raw, j * 16, 0, j * 16);
         this.seen[source.handedness] = true;
       }
+      state.controllers = controllers;
     }
 
     for (const h of ['left', 'right'] as Handedness[]) this.finish(state.hands[h], this.seen[h], delta);
@@ -96,6 +101,14 @@ export class HandInputSystem extends createSystem({}) {
       }
       if (hand.boneSamples < CALIBRATION_FRAMES) hand.boneSamples++;
       if (bad > 3) plausible = false;
+      // a skeleton that disagrees for a whole second is a new hand scale (the
+      // runtime refines it in the first seconds), not a glitch: learn it again
+      this.rejected[hand.handedness] = bad > 3 ? this.rejected[hand.handedness] + dt : 0;
+      if (this.rejected[hand.handedness] > RELEARN_AFTER) {
+        this.rejected[hand.handedness] = 0;
+        hand.boneSamples = 0;
+        hand.boneLengths.fill(0);
+      }
     }
 
     computeKinematics(hand.pose, hand.handedness, hand.kin);

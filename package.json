@@ -16,7 +16,7 @@
     "e2e": "node tools/e2e-suite.mjs",
     "s6": "node tools/s6.mjs",
     "report": "node tools/report.mjs",
-    "voice": "python tools/voice_kokoro.py",
+    "voice": "python tools/voice.py",
     "build": "vite build",
     "preview": "vite preview"
   },

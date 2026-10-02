@@ -11,6 +11,7 @@ import { stage } from '../stage.js';
 import { state, understudyHand } from '../state.js';
 import { store } from '../store.js';
 import { drawMessage, drawProgress, ProgressRow } from '../ui/viz.js';
+import { PALETTE } from '../render/materials.js';
 import { flow } from './engine.js';
 
 export async function showProgress(): Promise<void> {
@@ -64,7 +65,7 @@ export async function showProgress(): Promise<void> {
   const simulated = records.some((r) => r.simulated);
   const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated ? ' (simulated history)' : ''}`;
   const ghost = program === 'understudy' ? showGhost(records, us) : null;
-  const note = ghost ? 'On the mat: your fist two weeks ago in blue, and today.' : undefined;
+  const note = ghost ? 'On the mat: your closed hand two weeks ago, in blue, and today.' : undefined;
   stage.board.draw(drawProgress(rows.slice(0, 4), title, note), 1.4);
   stage.board.show();
   void sound.say('progress-intro');
@@ -113,8 +114,16 @@ function showGhost(records: SessionRecord[], hand: Handedness): (() => void) | n
   todayModel.setMaterial(stage.skin);
   todayModel.apply(place(today, 0.03));
   todayModel.setVisible(true);
+  // name the two hands on the mat, past the fingertips, so neither is taken for a tracked hand
+  stage.mat.labels = [
+    { u: -0.03, v: 0.13, text: '2 weeks ago', color: PALETTE.understudy, align: 'right' },
+    { u: 0.005, v: 0.13, text: 'Today', color: PALETTE.ink, align: 'left' },
+  ];
+  stage.mat.markDirty();
   return () => {
     ghostModel.setVisible(false);
     todayModel.setVisible(false);
+    stage.mat.labels = [];
+    stage.mat.markDirty();
   };
 }
