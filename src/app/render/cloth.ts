@@ -3,7 +3,7 @@
  * opaque, hides the real hand in passthrough. Hand tracking keeps seeing the
  * hand underneath, so the app measures what the user no longer sees.
  */
-import { BufferAttribute, Float32BufferAttribute, Group, LinearMipmapLinearFilter, Mesh, PlaneGeometry } from '@iwsdk/core';
+import { BufferAttribute, Float32BufferAttribute, Group, Mesh, PlaneGeometry } from '@iwsdk/core';
 import { rng } from '../../core/math.js';
 import { makeCanvas } from '../ui/text.js';
 import { makeClothMaterial } from './materials.js';
@@ -74,7 +74,7 @@ export class Cloth {
       const edge = Math.min(WID / 2 - Math.abs(x), LEN / 2 - Math.abs(z));
       y *= smooth(Math.min(1, edge / 0.035));
       this.draped[i * 3] = x;
-      this.draped[i * 3 + 1] = Math.max(0.0015, y);
+      this.draped[i * 3 + 1] = Math.max(0.003, y);
       this.draped[i * 3 + 2] = z;
     }
     // baked occlusion: folds and the hem sit darker than the crown of the drape
@@ -113,9 +113,6 @@ export class Cloth {
       hemPath(ctx, W, H, 0.92);
       ctx.stroke();
       ctx.restore();
-      // mipmaps: the fibres would shimmer at a seated viewing distance without them
-      felt.texture.generateMipmaps = true;
-      felt.texture.minFilter = LinearMipmapLinearFilter;
       felt.texture.needsUpdate = true;
     }
     mat.map = felt.texture;
@@ -129,6 +126,11 @@ export class Cloth {
     mat.alphaMap = hem.texture;
     mat.alphaTest = 0.5;
     mat.transparent = false;
+    // the hem lies millimetres above the mat: pull it toward the eye in depth so
+    // the mat never shows through it (it did, one frame in four, at a 16-bit depth)
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -2;
+    mat.polygonOffsetUnits = -4;
     this.mesh = new Mesh(geo, mat);
     this.mesh.renderOrder = 1;
     this.group.add(this.mesh);

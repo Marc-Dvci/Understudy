@@ -1,6 +1,6 @@
 # Validation report
 
-Generated from `validation/results.json` (2026-09-24T21:00:58.287Z), `validation/e2e-results.json` (2026-10-02T21:47:40.379Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
+Generated from `validation/results.json` (2026-09-24T21:00:58.287Z), `validation/e2e-results.json` (2026-10-02T22:40:06.236Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
 
 Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). No clinical effect is measured.
 
@@ -89,7 +89,7 @@ Without labels the station comes from the resting fingertips; on the music room'
 | Mode | Journey | Press methods used | Max draw calls | Max triangles |
 |---|---|---|---|---|
 | lead-right | completed in 112 s | poke x3 | 66 | 67128 |
-| lead-left | completed in 112 s | poke x3 | 66 | 67128 |
+| lead-left | completed in 113 s | poke x3 | 66 | 67128 |
 | dwell-only | completed in 115 s | dwell x3 | 66 | 67128 |
 | gaze-only | completed in 113 s | gaze x3 | 66 | 67128 |
 
