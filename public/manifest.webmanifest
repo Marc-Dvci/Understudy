@@ -1,7 +1,7 @@
 {
   "name": "Understudy",
   "short_name": "Understudy",
-  "description": "Mixed-reality mirror therapy on your own table, measured every day.",
+  "description": "A seated mirror exercise and hand-tracking routine on your own table, measured every day.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f0e8",

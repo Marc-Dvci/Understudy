@@ -12,6 +12,7 @@ import { sound } from './audio.js';
 import { stage } from './stage.js';
 import { state } from './state.js';
 import { CardContent } from './ui/card.js';
+import { SessionControls } from './flow/controls.js';
 
 /** Card notices shown while the app cannot see a hand; each line is spoken once a session. */
 const HINTS = {
@@ -32,6 +33,9 @@ export class FlowSystem extends createSystem({}) {
   demoRoom = true;
   /** Head height above the table for the seated autopilot, metres. */
   seatHeight = 0.42;
+  private readonly controls = new SessionControls();
+
+  init(): void { this.cleanupFuncs.push(this.controls.init()); }
 
   update(delta: number): void {
     const vs = this.world.visibilityState.peek();
@@ -57,6 +61,8 @@ export class FlowSystem extends createSystem({}) {
         if (fov > 20 && fov < 120) (driver.device as unknown as { fovy: number }).fovy = (fov * Math.PI) / 180;
         if (input === 'dwell') this.autopilot.inputMode = 'dwell';
         if (input === 'gaze') this.autopilot.inputMode = 'gaze';
+        const missing = q.get('missing');
+        if (missing === 'left' || missing === 'right') this.autopilot.missingHand = missing;
         state.emulated = true;
         if (this.demoRoom) {
           this.world.createTransformEntity(
@@ -68,11 +74,12 @@ export class FlowSystem extends createSystem({}) {
     if (vs === VisibilityState.VisibleBlurred) return;
     const dt = Math.min(delta, 0.05);
     flow.update(dt);
-    if (this.autopilot) {
+    this.controls.update();
+    if (this.autopilot && !flow.userPaused) {
       this.player.updateWorldMatrix(true, false);
       this.autopilot.update(dt, this.player.matrixWorld.elements);
     }
-    this.watchHands();
+    if (!flow.userPaused) this.watchHands();
   }
 
   private spoken = new Set<string>();

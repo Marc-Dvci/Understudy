@@ -12,7 +12,7 @@ import { sound } from '../audio.js';
 import { PALETTE } from '../render/materials.js';
 import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
-import { drawDrift, drawHandPrint, PrintView } from '../ui/viz.js';
+import { drawDrift, drawHandPrint, drawMessage, PrintView } from '../ui/viz.js';
 import { captureTrial, combineTrial, sessionPrint } from './capture.js';
 import { flow } from './engine.js';
 import { services } from './services.js';
@@ -24,13 +24,13 @@ export async function findTable(): Promise<void> {
   flow.expect = { kind: 'rest' };
   // before the station exists the card floats ahead at chest height
   placeFloatingCard();
-  flow.say('welcome', { icon: 'hand', title: 'Rest both hands on the table', body: 'Palms down, fingers relaxed.' });
+  flow.say('welcome', { icon: 'hand', title: 'Rest a hand on the table', body: 'Palm down, fingers relaxed. One hand is enough.' });
   let hinted = false;
   await flow.until(() => {
     placeFloatingCard();
     if (!hinted && (services.station?.searchTime ?? 0) > 8) {
       hinted = true;
-      flow.say('station-hint', { icon: 'hand', title: 'Hands flat and still', body: 'Put both hands flat on the table for a moment.' });
+      flow.say('station-hint', { icon: 'hand', title: 'Hand flat and still', body: 'Rest your working hand on the table for a moment.' });
     }
     return state.station.ready;
   });
@@ -55,13 +55,21 @@ function placeFloatingCard(): void {
 export async function chooseSide(expect: Handedness | 'both' = 'left'): Promise<Handedness | 'both'> {
   flow.step = 'choose-side';
   stage.stone({ id: 'side-left', label: 'Left hand', icon: 'left', accent: PALETTE.understudy });
-  stage.stone({ id: 'side-both', label: 'Both hands', icon: 'both', accent: PALETTE.understudy });
+  stage.stone({ id: 'side-both', label: 'Both hands', sub: 'Warm-up', icon: 'both', accent: PALETTE.understudy });
   stage.stone({ id: 'side-right', label: 'Right hand', icon: 'right', accent: PALETTE.understudy });
   flow.say('which-hand', { icon: 'touch', title: 'Which hand needs help?', body: 'Touch a stone. Press right down onto the table.' });
   const id = await flow.choose(['side-left', 'side-both', 'side-right'], `side-${expect}`);
   const side = id === 'side-left' ? 'left' : id === 'side-right' ? 'right' : 'both';
   state.profile.understudy = side === 'both' ? null : side;
   if (side !== 'both') await stage.setUnderstudySide(services.base);
+  stage.board.draw(drawMessage('Move comfortably', [
+    'Use alongside your care team\'s advice. Stop if pain increases.',
+    'Pause and Stop stay at the near edge of your mat.',
+    'Hand measurements are estimates. A short session is enough.',
+  ]));
+  stage.board.show();
+  await flow.tell('comfort', { icon: 'hand', title: 'Move comfortably' });
+  stage.board.hide();
   return side;
 }
 
@@ -103,6 +111,13 @@ export async function handPrint(hands: Handedness[], trialsCount = 3): Promise<P
     }
   }
   flow.expect = { kind: 'move', movement: 'relax', hands };
+  if (hands.some((h) => !Number.isFinite(sessionPrint(trials[h]).tamTotal))) {
+    flow.say('print-missing', { icon: 'hand', title: 'Some readings unavailable', body: 'Bring tracked hands into view to retry, or continue in Watch.' });
+    stage.stone({ id: 'print-retry', label: 'Retry', icon: 'back' });
+    stage.stone({ id: 'print-continue', label: 'Continue', icon: 'next' });
+    const choice = await flow.choose(['print-retry', 'print-continue'], 'print-continue');
+    if (choice === 'print-retry') return handPrint(hands, trialsCount);
+  }
   sound.chime();
   return { hands, trials, peak };
 }
@@ -158,7 +173,7 @@ export async function startMirror(): Promise<boolean> {
   const us = state.hands[understudyHand()];
   flow.expect = { kind: 'rest' };
   flow.say('cloth-intro', { icon: 'cloth', title: 'Keep your hand still', body: `A cloth will cover your ${understudyHand()} hand.` });
-  await flow.until(() => us.valid && state.hands[leadHand()].valid, 8);
+  await flow.until(() => state.hands[leadHand()].valid, 8);
   await flow.wait(1.2);
   if (!services.mirror?.calibrateFromHands()) return false;
   const rest = state.mirror.restPose;

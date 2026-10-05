@@ -231,17 +231,18 @@ export function computeKinematics(pose: Pose, handedness: Handedness, out: HandK
  * 5 ring tip, 6 little tip, 7 little DIP, 8 little PIP, 9 little MCP,
  * 10 the palm below the little finger.
  */
+function landmarkMidpoint(i: number, k: number): Vec3 {
+  lm[0] = 0.5 * (P[i][0] + P[k][0]);
+  lm[1] = 0.5 * (P[i][1] + P[k][1]);
+  lm[2] = 0.5 * (P[i][2] + P[k][2]);
+  return lm;
+}
+
 function kapandjiDistances(out: number[]): void {
   const tip = P[J.thumbTip];
-  const mid = (i: number, k: number) => {
-    lm[0] = 0.5 * (P[i][0] + P[k][0]);
-    lm[1] = 0.5 * (P[i][1] + P[k][1]);
-    lm[2] = 0.5 * (P[i][2] + P[k][2]);
-    return lm;
-  };
   out[0] = 0;
-  out[1] = dist3(tip, mid(J.indexProx, J.indexInter));
-  out[2] = dist3(tip, mid(J.indexInter, J.indexDist));
+  out[1] = dist3(tip, landmarkMidpoint(J.indexProx, J.indexInter));
+  out[2] = dist3(tip, landmarkMidpoint(J.indexInter, J.indexDist));
   out[3] = dist3(tip, P[J.indexTip]);
   out[4] = dist3(tip, P[J.middleTip]);
   out[5] = dist3(tip, P[J.ringTip]);

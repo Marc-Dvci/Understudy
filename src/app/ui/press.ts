@@ -21,14 +21,19 @@ export type PressMethod = 'poke' | 'dwell' | 'thumb' | 'gaze' | 'pointer';
 const TIP_RADIUS = 0.009;
 const REARM = 0.022;
 const HOVER_HEIGHT = 0.07;
+const HANDS: readonly Handedness[] = ['left', 'right'];
 
 export class PressInput {
   private readonly stones = new Map<string, Stone>();
   private readonly listeners: PressListener[] = [];
   // a poke must start from above: a fingertip resting on the table never presses
   private armed: Record<Handedness, boolean> = { left: false, right: false };
-  private dwellTime = new Map<string, number>();
+  private readonly dwellTime = { left: new Map<string, number>(), right: new Map<string, number>() };
   private gazeTime = new Map<string, number>();
+  private readonly active: Stone[] = [];
+  private readonly pending = new Set<(reason: Error) => void>();
+  /** Restrict input to Resume/Stop while a session is paused. */
+  allowedIds: ReadonlySet<string> | null = null;
   private thumbState: Record<Handedness, { closedAt: number; closed: boolean }> = {
     left: { closedAt: -1, closed: false },
     right: { closedAt: -1, closed: false },
@@ -62,48 +67,71 @@ export class PressInput {
 
   /** Resolves with the id of the first of `ids` pressed. */
   wait(ids: string[]): Promise<string> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const cancel = (reason: Error) => { off(); this.pending.delete(cancel); reject(reason); };
       const off = this.onPress((id) => {
         if (ids.includes(id)) {
           off();
+          this.pending.delete(cancel);
           resolve(id);
         }
       });
+      this.pending.add(cancel);
     });
+  }
+
+  cancelPending(reason: Error): void {
+    for (const cancel of this.pending) cancel(reason);
+  }
+
+  reset(): void {
+    this.dwellTime.left.clear();
+    this.dwellTime.right.clear();
+    this.gazeTime.clear();
+    this.armed.left = this.armed.right = false;
+    this.focused = null;
+    for (const s of this.stones.values()) s.dwell = 0;
   }
 
   press(id: string, how: PressMethod): void {
     const s = this.stones.get(id);
-    if (!s || !s.enabled || !s.shown || this.cooldown > 0) return;
+    if (!s || !s.enabled || !s.shown || this.cooldown > 0 || (this.allowedIds && !this.allowedIds.has(id))) return;
     s.pressed = 1;
     this.cooldown = 0.35;
     this.lastMethod = how;
-    this.dwellTime.clear();
-    this.gazeTime.clear();
+    this.reset();
     for (const fn of [...this.listeners]) fn(id, how);
   }
 
   update(dt: number): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
-    const active = [...this.stones.values()].filter((s) => s.shown && s.enabled);
+    const active = this.active;
+    active.length = 0;
     for (const s of this.stones.values()) {
       s.hover = 0;
       s.update(dt);
+      if (s.shown && s.enabled && (!this.allowedIds || this.allowedIds.has(s.id))) active.push(s);
+      else { this.dwellTime.left.delete(s.id); this.dwellTime.right.delete(s.id); this.gazeTime.delete(s.id); }
     }
     let focus: string | null = null;
     let bestHover = 0;
     const dwellSeconds = state.profile.dwellSeconds;
 
-    for (const h of ['left', 'right'] as Handedness[]) {
+    for (const h of HANDS) {
       const hand = state.hands[h];
-      if (!hand.valid) continue;
+      if (!hand.valid) {
+        this.dwellTime[h].clear();
+        this.armed[h] = false;
+        this.thumbState[h].closed = false;
+        continue;
+      }
       const t = hand.indexTip;
       let lowest = Infinity;
       for (const s of active) {
         s.group.getWorldPosition(this.world);
         const dh = Math.hypot(t[0] - this.world.x, t[2] - this.world.z);
         const hgt = t[1] - TIP_RADIUS - (this.world.y + s.topHeight * s.group.scale.y);
-        if (dh < s.radius * 1.15 && hgt < HOVER_HEIGHT) {
+        if (dh < s.radius * 1.15 && hgt >= -0.035 && hgt < HOVER_HEIGHT) {
           const hv = 1 - Math.max(0, hgt) / HOVER_HEIGHT;
           s.hover = Math.max(s.hover, hv);
           if (hv > bestHover) {
@@ -119,17 +147,17 @@ export class PressInput {
           }
           // dwell: a fingertip held over the stone
           if (hgt < 0.045 && hand.indexTipSpeed < 0.08) {
-            const d = (this.dwellTime.get(s.id) ?? 0) + dt;
-            this.dwellTime.set(s.id, d);
+            const d = (this.dwellTime[h].get(s.id) ?? 0) + dt;
+            this.dwellTime[h].set(s.id, d);
             s.dwell = Math.min(1, d / dwellSeconds);
             if (d >= dwellSeconds) {
               this.press(s.id, 'dwell');
               return;
             }
           } else {
-            this.dwellTime.set(s.id, 0);
+            this.dwellTime[h].delete(s.id);
           }
-        }
+        } else this.dwellTime[h].delete(s.id);
       }
       if (lowest > REARM) this.armed[h] = true;
 
@@ -144,7 +172,7 @@ export class PressInput {
         ts.closedAt = state.time;
       } else if (ts.closed && gap > 0.028) {
         ts.closed = false;
-        const tapFocus = focus ?? this.focused;
+        const tapFocus = focus;
         if (state.time - ts.closedAt < 0.45 && tapFocus) {
           this.press(tapFocus, 'thumb');
           return;
@@ -172,7 +200,7 @@ export class PressInput {
           this.gazeTime.set(s.id, 0);
         }
       }
-    }
+    } else this.gazeTime.clear();
     this.focused = focus;
   }
 
@@ -206,5 +234,6 @@ export class PressInput {
 
   hideAll(): void {
     for (const s of this.stones.values()) s.hide();
+    this.reset();
   }
 }

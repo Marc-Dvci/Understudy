@@ -129,7 +129,7 @@ export function progressFor(records: SessionRecord[], hand: Handedness, id: Metr
   const series = seriesFor(records, key);
   const finite = series.filter(Number.isFinite);
   const error = estimateError(trialsFor(records, key), series, def.priorSem);
-  const latest = finite.length ? finite[finite.length - 1] : NaN;
+  const latest = series.length ? series[series.length - 1] : NaN;
   const baseline =
     finite.length > 14 ? finite[finite.length - 15] : finite.length >= 2 ? median(finite.slice(0, Math.min(3, finite.length - 1))) : NaN;
   return {
@@ -139,7 +139,7 @@ export function progressFor(records: SessionRecord[], hand: Handedness, id: Metr
     change: classifyChange(latest, baseline, error.mdc, def.higherIsBetter),
     error,
     usual: usualRange(finite.slice(0, -1), error.sem),
-    flagged: belowUsualTwice(finite, error.sem, def.higherIsBetter),
+    flagged: series.length >= 2 && series.slice(-2).every(Number.isFinite) && belowUsualTwice(finite, error.sem, def.higherIsBetter),
     sessions: finite.length,
   };
 }
@@ -151,13 +151,14 @@ export const SHARE_FLOOR = 20;
  * holds today is a pure function of the records.
  */
 export function sharesFromHistory(records: SessionRecord[], understudy: Handedness): number[] {
+  records = records.filter((r) => r.program === 'understudy' && r.understudy === understudy);
   const lead: Handedness = understudy === 'left' ? 'right' : 'left';
   const fingers: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
   const shares = [0, 0, 0, 0];
   fingers.forEach((id, f) => {
     const own = seriesFor(records, metricKey(understudy, id));
     const ref = seriesFor(records, metricKey(lead, id));
-    const err = estimateError(trialsFor(records, metricKey(understudy, id)), own, METRICS[id].priorSem);
+    const trials = trialsFor(records, metricKey(understudy, id));
     const state = { anchorRange: NaN, share: 0 };
     const history: number[] = [];
     let leadRef = NaN;
@@ -165,6 +166,8 @@ export function sharesFromHistory(records: SessionRecord[], understudy: Handedne
       if (Number.isFinite(ref[i])) leadRef = ref[i];
       if (!Number.isFinite(own[i])) continue;
       history.push(own[i]);
+      // Each decision uses only measurements that existed on that day.
+      const err = estimateError(trials.slice(0, i + 1), own.slice(0, i + 1), METRICS[id].priorSem);
       updateShare(state, median(history.slice(-3)), leadRef, SHARE_FLOOR, err.mdc);
     }
     shares[f] = state.share;
@@ -183,20 +186,33 @@ export function toCsv(records: SessionRecord[]): string {
   const keys = new Set<string>();
   records.forEach((r) => Object.keys(r.metrics).forEach((k) => keys.add(k)));
   const cols = [...keys].sort();
-  const head = ['session', 'date', 'program', 'understudy', 'app', 'calibration', 'pain_before', 'pain_after', ...cols];
+  const head = ['session', 'date', 'ended', 'program', 'understudy', 'app', 'calibration', 'simulated', 'completed', 'pain_before', 'pain_after', 'shares', ...cols.flatMap((c) => [c, `${c}:trials`, `${c}:valid_share`])];
   const rows = records.map((r) => [
     r.id,
     new Date(r.startedAt).toISOString(),
+    r.endedAt ? new Date(r.endedAt).toISOString() : '',
     r.program,
     r.understudy ?? 'both',
     r.appVersion,
     r.calibrationHash,
+    !!r.simulated,
+    r.completed,
     r.painBefore ?? '',
     r.painAfter ?? '',
-    ...cols.map((c) => {
+    r.shares ? JSON.stringify(r.shares) : '',
+    ...cols.flatMap((c) => {
       const v = r.metrics[c]?.value;
-      return Number.isFinite(v) ? (v as number).toFixed(2) : '';
+      return [Number.isFinite(v) ? (v as number).toFixed(2) : '', r.metrics[c] ? JSON.stringify(r.metrics[c].trials.map((t) => Number.isFinite(t) ? t : null)) : '', r.metrics[c]?.validShare ?? ''];
     }),
   ]);
-  return [head, ...rows].map((row) => row.join(',')).join('\n');
+  const cell = (v: unknown) => {
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [head, ...rows].map((row) => row.map(cell).join(',')).join('\n');
+}
+
+/** Comparable completed sessions for the active programme and hand roles. */
+export function historyFor(records: SessionRecord[], program: ProgramId, understudy: Handedness | null): SessionRecord[] {
+  return records.filter((r) => r.completed && r.program === program && r.understudy === understudy);
 }

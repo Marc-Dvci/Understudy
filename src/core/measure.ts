@@ -115,6 +115,7 @@ export class TrialBuffer {
 }
 
 export const MIN_VALID_FRAMES = 12;
+export const MIN_VALID_SHARE = 0.5;
 
 export interface HandPrint {
   /** Per finger (index..little) total active motion, degrees. */
@@ -139,7 +140,7 @@ export function handPrintFromTrials(fist: TrialBuffer, open: TrialBuffer, oppose
   const fistSum: number[] = [];
   const openDeficit: number[] = [];
   for (let f = 0; f < 4; f++) {
-    if (fist.valid < MIN_VALID_FRAMES || open.valid < MIN_VALID_FRAMES) {
+    if (fist.valid < MIN_VALID_FRAMES || open.valid < MIN_VALID_FRAMES || fist.validShare < MIN_VALID_SHARE || open.validShare < MIN_VALID_SHARE) {
       tam.push(NaN);
       fistSum.push(NaN);
       openDeficit.push(NaN);
@@ -153,15 +154,15 @@ export function handPrintFromTrials(fist: TrialBuffer, open: TrialBuffer, oppose
     }
     fistSum.push(flex);
     openDeficit.push(deficit);
-    tam.push(flex - deficit);
+    tam.push(Math.max(0, flex - deficit));
   }
   const tamTotal = tam.every(Number.isFinite) ? tam.reduce((a, b) => a + b, 0) : NaN;
   return {
     tam,
     tamTotal,
-    opening: open.valid >= MIN_VALID_FRAMES ? robustPeak(open.opening) : NaN,
-    spread: open.valid >= MIN_VALID_FRAMES ? robustPeak(open.spread) : NaN,
-    kapandji: oppose && oppose.valid >= MIN_VALID_FRAMES ? robustPeak(oppose.kapandji, 3) : NaN,
+    opening: open.valid >= MIN_VALID_FRAMES && open.validShare >= MIN_VALID_SHARE ? robustPeak(open.opening) : NaN,
+    spread: open.valid >= MIN_VALID_FRAMES && open.validShare >= MIN_VALID_SHARE ? robustPeak(open.spread) : NaN,
+    kapandji: oppose && oppose.valid >= MIN_VALID_FRAMES && oppose.validShare >= MIN_VALID_SHARE ? robustPeak(oppose.kapandji, 3) : NaN,
     fistSum,
     openDeficit,
     validShare: Math.min(fist.validShare, open.validShare),
@@ -185,6 +186,7 @@ export interface TapResult {
   decrement: number;
   /** Inter-tap intervals above twice the median. */
   hesitations: number;
+  validShare: number;
 }
 
 /**
@@ -192,13 +194,18 @@ export interface TapResult {
  * `closeAt` after an opening above `openAt`; hysteresis rejects jitter.
  */
 export function analyseTapping(t: number[], gap: number[], closeAt = 0.02, openAt = 0.035): TapResult {
+  const samples = Math.min(t.length, gap.length);
+  let valid = 0;
+  for (let i = 0; i < samples; i++) if (Number.isFinite(t[i]) && Number.isFinite(gap[i])) valid++;
+  const validShare = samples ? valid / samples : 0;
+  if (valid < MIN_VALID_FRAMES || validShare < MIN_VALID_SHARE) return { taps: 0, rate: NaN, amplitude: NaN, decrement: NaN, hesitations: 0, validShare };
   const tapTimes: number[] = [];
   const amps: number[] = [];
   let state: 'open' | 'closed' = gap[0] < closeAt ? 'closed' : 'open';
   let peak = 0;
-  for (let i = 0; i < gap.length; i++) {
+  for (let i = 0; i < samples; i++) {
     const g = gap[i];
-    if (!Number.isFinite(g)) continue;
+    if (!Number.isFinite(g) || !Number.isFinite(t[i])) { state = 'closed'; peak = 0; continue; }
     if (state === 'open') {
       peak = Math.max(peak, g);
       if (g < closeAt) {
@@ -243,6 +250,7 @@ export function analyseTapping(t: number[], gap: number[], closeAt = 0.02, openA
     amplitude: amps.length ? mean(amps) : NaN,
     decrement,
     hesitations,
+    validShare,
   };
 }
 

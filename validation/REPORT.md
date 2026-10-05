@@ -1,8 +1,8 @@
 # Validation report
 
-Generated from `validation/results.json` (2026-09-24T21:00:58.287Z), `validation/e2e-results.json` (2026-10-02T22:40:06.236Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
+Generated from `validation/results.json` (2026-10-05T18:48:53.052Z), `validation/e2e-results.json` (2026-10-05T18:52:08.239Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
 
-Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). No clinical effect is measured.
+Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). Clinical outcomes belong in a future prospective study.
 
 ## Summary
 
@@ -15,8 +15,8 @@ Everything here is simulated or emulated. The simulation checks the software's l
 | S5 | Warm-up stiffness recovery | Spearman >= 0.9 | 0.973 over 200 curves | pass |
 | S6 | Station in unknown rooms | found with <= 1 fallback, height within 1.5 cm | 60/60 cells; max height error 0.31 cm | pass |
 | S7 | Journey in every input mode | completes in each | lead-right ok, lead-left ok, dwell-only ok, gaze-only ok | pass |
-| S8 | Interactive elements inside the Glasses view | 100% | 1548 corner checks, worst 11.2 deg above gaze (limit 25) | pass |
-| S9 | Render budget | <= 80 draw calls, <= 120000 triangles | max 66 calls, 67128 triangles | pass |
+| S8 | Interactive elements inside the Glasses view | 100% | 25312 corner checks, worst 15.0 deg above gaze (limit 25) | pass |
+| S9 | App render budget (demo room off) | <= 80 draw calls, <= 120000 triangles | max 66 calls, 44612 triangles | pass |
 | S10 | Mirror vs independently built opposite hand | <= 2e-6 | float32 agreement (tests/mirror.test.ts) | pass |
 | S11 | Replays are deterministic | bit-identical | identical | pass |
 
@@ -43,6 +43,8 @@ Sensitivity to the assumed session bias (index range SEM): 4.7 deg at 3 deg, 7.5
 
 50 synthetic patients per trajectory, 3 sessions a week, MDC 20.8 deg.
 
+S3 holds the MDC constant at the S2 reference. The app recalculates personal error from historical prefixes. This reference-rule simulation does not measure the complete adaptive pipeline's false-move rate on a physical device.
+
 | Trajectory | Share moves per session | Final share error, median | 90th percentile |
 |---|---|---|---|
 | steady | 8.1% | 0.059 | 0.138 |
@@ -52,7 +54,7 @@ Sensitivity to the assumed session bias (index range SEM): 4.7 deg at 3 deg, 7.5
 
 ## S4: attempt gating
 
-Detector parameters were tuned on development seeds (15 settings; chosen k = 2.5, smoothing 0.25 s) and scored once on held-out seeds. The shipped defaults equal the chosen setting: true.
+Detector parameters were tuned on development seeds (15 settings; chosen k = 2.5, smoothing 0.25 s) and scored once on held-out seeds. The shipped defaults equal the chosen setting: true. The fixed-size sweep below uses a separate simulated sample from the headline held-out cohort.
 
 | Attempt size (summed finger flexion) | Single finger | Whole hand |
 |---|---|---|
@@ -63,11 +65,13 @@ Detector parameters were tuned on development seeds (15 settings; chosen k = 2.5
 
 False attempts with a still hand while the Lead hand moves: 0.66 per minute per finger, 0.55 per minute for the whole-hand detector.
 
-The pre-registered bar (90% at 5 deg) is not met for single fingers. Whole-hand attempts of 5 deg are detected 89.5% of the time and single-finger attempts from 10 deg 94% of the time. The app therefore opens a finger's gate on either detector: a whole-hand attempt opens every finger, and a single-finger attempt opens that finger.
+In the held-out cohort, whole-hand attempts of 5 deg are detected 89.5% of the time. In the fixed-size sweep, single-finger attempts of 10 deg are detected 94% of the time. The app opens a finger's gate on either detector: a whole-hand attempt opens every finger, and a single-finger attempt opens that finger. The original 90% detection target for 5 deg attempts is not met. Small attempts can be missed; this limits Rehearse and is not evidence of absent effort or recovery.
 
 ## S6: rooms the app was never tuned on
 
 Five scanned rooms from IWER's Synthetic Environment Module, table label kept and removed, three seated eye heights (0.36, 0.42, 0.48 m above the table), Meta Quest 3 and Meta VR Glasses profiles.
+
+This is the retained placement run from 2026-09-24T20:57:20.859Z; it was not rerun during the October audit. Device profiles emulate layout and room data, not physical headset tracking or frame rate.
 
 | Device, room | Cells passed | Station sources | Max height error |
 |---|---|---|---|
@@ -88,9 +92,37 @@ Without labels the station comes from the resting fingertips; on the music room'
 
 | Mode | Journey | Press methods used | Max draw calls | Max triangles |
 |---|---|---|---|---|
-| lead-right | completed in 112 s | poke x3 | 66 | 67128 |
-| lead-left | completed in 113 s | poke x3 | 66 | 67128 |
-| dwell-only | completed in 115 s | dwell x3 | 66 | 67128 |
-| gaze-only | completed in 113 s | gaze x3 | 66 | 67128 |
+| lead-right | completed in 192 s | poke x3 | 66 | 44612 |
+| lead-left | completed in 192 s | poke x3 | 66 | 44612 |
+| dwell-only | completed in 195 s | dwell x3 | 66 | 44612 |
+| gaze-only | completed in 194 s | gaze x3 | 66 | 44612 |
 
-Reading panels (reported, not part of S8): 100% of panel samples fit inside the Glasses view when looked at directly; 0% are fully visible while looking at the mat centre, so the card and board need a glance upward on the Glasses.
+Reading panels (reported, outside the S8 interaction check): 100% of samples fit inside the Glasses view when looked at directly. The card and board are placed for an upward glance from the mat.
+
+The four S7 modes describe button input. The simulated actor supplies both hands during the measurement movements. These runs do not prove measurements work without the measured hand. Head gaze is headset direction, not eye tracking. S9 is a geometry budget, not a measured Quest frame rate.
+
+## October regression checks
+
+Generated 2026-10-05T18:48:52.789Z against https://localhost:4177/Understudy/. Input selections use the emulated headset and the production gaze dwell path.
+
+- gaze Pause freezes the flow clock: pass
+- gaze Resume restores the same exercise: pass
+- gaze Stop returns Home, saves an unfinished record and removes exercise objects: pass
+- gaze Export downloads CSV with trials, quality and sample/unfinished labels: pass
+- gaze Keep data cancels erase without changing history: pass
+- gaze Erase clears the temporary sample history after confirmation: pass
+- Phantom completes with the left hand disconnected throughout: pass
+- Phantom completes with the right hand disconnected throughout: pass
+
+Page errors: 0. Overall: pass. Storage regressions additionally cover IndexedDB transaction aborts, write failure, sample isolation, NaN readings, deletion after fallback and immutable snapshots in `tests/store.test.ts`. Dwell regressions cover hand loss, target exit, mixed hands and Pause input restrictions in `tests/press.test.ts`.
+
+Phantom checks above cover the first recognition session, not all later imagery and mirror stages.
+
+## Watch with an untracked Understudy hand
+
+Generated 2026-10-03T15:58:48.892Z, query ?fresh&demo&noroom&missing=left. Overall: pass; page errors: 0.
+
+- Watch completes using one tracked Lead hand
+- No guessed position result
+- All missing-hand metrics unavailable with zero tracking share
+- Every assistance share remains zero

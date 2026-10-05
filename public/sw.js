@@ -1,14 +1,16 @@
-// Offline support: the app shell, hand models, fonts and voice lines are
-// cached on first use, so a daily session works without a connection.
+// The production build replaces these values with a content hash and every
+// file needed for an offline session. Dev mode keeps a minimal shell cache.
 const CACHE = 'understudy-v1';
+const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).then(() => self.skipWaiting()));
+  // Wait for existing sessions to close before replacing their cached chunks.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k.startsWith('understudy-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   );
 });
 
@@ -24,8 +26,8 @@ self.addEventListener('fetch', (e) => {
             caches.open(CACHE).then((c) => c.put(req, copy));
             return res;
           })
-          .catch(() => caches.match(req).then((r) => r ?? caches.match('./index.html')))
-      : caches.match(req).then(
+          .catch(() => caches.match(req, { ignoreVary: true }).then((r) => r ?? caches.match('./index.html', { ignoreVary: true })))
+      : caches.match(req, { ignoreVary: true }).then(
           (hit) =>
             hit ??
             fetch(req).then((res) => {

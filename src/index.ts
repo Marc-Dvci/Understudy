@@ -13,6 +13,7 @@ import { setupLanding } from './app/landing.js';
 import { MirrorSystem } from './app/mirror-system.js';
 import { stage, StageSystem } from './app/stage.js';
 import { state } from './app/state.js';
+import { store } from './app/store.js';
 import { StationSystem } from './app/station.js';
 import { QualitySystem } from './app/quality.js';
 import { loadFonts } from './app/ui/text.js';
@@ -64,7 +65,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       // give the emulator a frame to install the autopilot before choosing hand styles
       setTimeout(start, 300);
     }
-    flow.paused = v === VisibilityState.VisibleBlurred;
+    flow.suspended = v === VisibilityState.VisibleBlurred || v === VisibilityState.NonImmersive;
+    sound.setPaused(flow.paused);
   });
   let demoMode = false;
   setupLanding(
@@ -93,5 +95,11 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       })
       .catch(() => undefined);
   }
-  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, quality: services.quality };
+  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, store, flowSystem, quality: services.quality };
+}).catch((error: unknown) => {
+  console.error('[understudy] startup failed', error);
+  const status = document.getElementById('status');
+  const start = document.getElementById('start') as HTMLButtonElement | null;
+  if (status) status.textContent = 'Understudy could not finish loading. Reload this page to try again. If you are offline, reconnect once to download the app.';
+  if (start) start.disabled = true;
 });

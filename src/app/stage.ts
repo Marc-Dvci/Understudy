@@ -3,7 +3,7 @@
  * frame: the mat, the cloth, the instruction card, the board, the stones and
  * the hands.
  */
-import { AmbientLight, createSystem, DirectionalLight, Group, Vector3 } from '@iwsdk/core';
+import { AmbientLight, createSystem, DirectionalLight, Group, Vector3, VisibilityState } from '@iwsdk/core';
 import { J } from '../core/joints.js';
 import { sound } from './audio.js';
 import { Cloth } from './render/cloth.js';
@@ -94,7 +94,7 @@ export class Stage {
     if (this.hands.mirror.handedness === side) return;
     for (const key of ['mirror', 'history'] as const) {
       const old = this.hands[key];
-      this.root.remove(old.root);
+      old.dispose();
       const next = new HandModel(side, key === 'mirror' ? this.skin : this.ghost, `hand-${key}`);
       await next.load(base);
       this.root.add(next.root);
@@ -157,7 +157,9 @@ export class Stage {
     if (s.ready) {
       this.table.position.set(s.center[0], s.center[1], s.center[2]);
       this.table.rotation.set(0, Math.atan2(-s.forward[0], -s.forward[2]), 0);
-      this.table.updateMatrixWorld(true);
+      // Only the station matrix is needed here. Children update when queried
+      // by input or rendered, after their animations have changed this frame.
+      this.table.updateWorldMatrix(true, false);
     }
     // the card stands behind the mat and leans back, facing the user
     const keep = state.profile.keepSide;
@@ -239,6 +241,7 @@ export const stage = new Stage();
 /** Runs the stage every frame. */
 export class StageSystem extends createSystem({}) {
   update(delta: number): void {
+    if (!state.immersive || this.world.visibilityState.peek() === VisibilityState.VisibleBlurred) return;
     const adapters = this.world.input.xr.visualAdapters.hand;
     adapters.left.toggleVisual(false);
     adapters.right.toggleVisual(false);

@@ -33,6 +33,9 @@ jobs:
         with:
           path: dist
   deploy:
+    # Private preparation still runs all build checks. Publish after the
+    # repository is public and Pages is configured for GitHub Actions.
+    if: ${{ !github.event.repository.private }}
     needs: build
     runs-on: ubuntu-latest
     environment:

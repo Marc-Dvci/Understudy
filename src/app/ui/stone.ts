@@ -61,10 +61,13 @@ export class Stone {
   selected = false;
   visibleTarget = false;
   private appear = 0;
+  private readonly accentColor = new Color();
+  private readonly baseColor = new Color('#f4efe6');
 
   constructor(opts: StoneOptions) {
     this.id = opts.id;
     this.opts = opts;
+    this.accentColor.set(opts.accent ?? PALETTE.understudy);
     this.radius = opts.radius ?? 0.05;
     this.bodyMat = new MeshStandardMaterial({ color: new Color('#f4efe6'), roughness: 0.72, metalness: 0 });
     this.body = new Mesh(stoneGeometry(this.radius, this.height), this.bodyMat);
@@ -91,6 +94,7 @@ export class Stone {
   }
 
   setLabel(label: string, sub?: string, icon?: IconName): void {
+    if (this.opts.label === label && this.opts.sub === sub && this.opts.icon === (icon ?? this.opts.icon)) return;
     this.opts = { ...this.opts, label, sub, icon: icon ?? this.opts.icon };
     this.drawFace();
   }
@@ -165,10 +169,8 @@ export class Stone {
     this.pressed = Math.max(0, this.pressed - dt * 3);
     this.body.position.y = -this.pressed * 0.006;
     this.face.position.y = this.height + 0.0006 - this.pressed * 0.006;
-    const accent = new Color(this.opts.accent ?? PALETTE.understudy);
-    const base = new Color('#f4efe6');
     const tint = this.selected ? 0.35 : this.hover * 0.18 + this.pressed * 0.4;
-    this.bodyMat.color.copy(base).lerp(accent, tint);
+    this.bodyMat.color.copy(this.baseColor).lerp(this.accentColor, tint);
     this.bodyMat.opacity = this.enabled ? 1 : 0.5;
     this.bodyMat.transparent = !this.enabled;
     this.ringMat.opacity = this.enabled ? Math.max(this.hover * 0.55, this.selected ? 0.9 : 0, this.dwell) : 0;

@@ -9,8 +9,9 @@ import { stage } from '../stage.js';
 import { state } from '../state.js';
 import { store } from '../store.js';
 import { drawMessage } from '../ui/viz.js';
-import { flow } from './engine.js';
+import { flow, FlowInterrupted } from './engine.js';
 import { runProgram } from './programs.js';
+import { services } from './services.js';
 import {
   chooseSide,
   embodimentCheck,
@@ -34,6 +35,7 @@ export function newRecord(program: ProgramId): SessionRecord {
     metrics: {},
     exercises: [],
     completed: false,
+    simulated: state.emulated || store.sandbox,
   };
 }
 
@@ -46,11 +48,12 @@ function calibrationHash(): string {
 }
 
 export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
-  await store.init();
-  if (options.fresh) await store.clear();
+  const query = new URLSearchParams(location.search);
+  const requestedSeed = Number(query.get('seed') ?? 0);
+  const seedN = Number.isFinite(requestedSeed) ? Math.max(0, Math.min(56, Math.floor(requestedSeed))) : 0;
+  await store.init({ sandbox: !!options.fresh || state.emulated || seedN > 0 });
   // demo: start from simulated history (?seed=21), marked as simulated on screen
-  const seedN = Number(new URLSearchParams(location.search).get('seed') ?? 0);
-  if (options.fresh && seedN > 0) {
+  if (seedN > 0) {
     const { seedHistory } = await import('../emulation/seed.js');
     for (const r of seedHistory(seedN, 'left')) await store.saveSession(r);
     state.profile.understudy = 'left';
@@ -62,16 +65,45 @@ export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   sound.voiceEnabled = state.profile.voice;
   const records = await store.sessions();
   await findTable();
-  if (!saved || records.length === 0) await firstVisit(records);
-  for (;;) await home();
+  try {
+    if (!saved || records.length === 0) await firstVisit(records);
+  } catch (error) { await recover(error); }
+  for (;;) {
+    try { await home(); }
+    catch (error) { await recover(error); }
+  }
+}
+
+async function recover(error: unknown): Promise<void> {
+  if (!(error instanceof FlowInterrupted)) throw error;
+  const record = flow.currentRecord;
+  if (record && !record.completed) {
+    record.endedAt = Date.now();
+    await store.saveSession(record);
+  }
+  flow.currentRecord = null;
+  stopMirror();
+  if (services.mirror) { services.mirror.forceWatch = true; services.mirror.attemptPhase = 'off'; }
+  stage.hideStones();
+  stage.board.hide();
+  stage.meter.hide();
+  for (const h of Object.values(stage.hands)) h.setVisible(false);
+  await store.saveProfile(state.profile);
 }
 
 /** The First Five Minutes. */
 async function firstVisit(records: SessionRecord[]): Promise<void> {
   flow.step = 'tour';
-  const record = newRecord('understudy');
   const q = new URLSearchParams(location.search);
   const side = await chooseSide(q.get('input') === 'left' ? 'right' : 'left');
+  state.profile.program = side === 'both' ? 'warmup' : await chooseProgram();
+  await store.saveProfile(state.profile);
+  if (state.profile.program !== 'understudy') {
+    await runProgram(state.profile.program);
+    return;
+  }
+  const record = newRecord('understudy');
+  flow.currentRecord = record;
   const pr = await handPrint(['left', 'right']);
   recordPrint(record, pr);
   await showHandPrint(pr, records);
@@ -79,7 +111,8 @@ async function firstVisit(records: SessionRecord[]): Promise<void> {
   if (side !== 'both') {
     if (await startMirror()) {
       await mirrorPlay(20);
-      record.drift = await embodimentCheck();
+      // A position result needs a tracked resting hand as its reference.
+      if (state.hands[state.profile.understudy!].valid) record.drift = await embodimentCheck();
       const felt = await feltQuestion();
       record.exercises.push({ id: `felt-${felt}`, seconds: 0, reps: 0 });
       stopMirror();
@@ -88,11 +121,8 @@ async function firstVisit(records: SessionRecord[]): Promise<void> {
   record.understudy = state.profile.understudy;
   record.calibrationHash = calibrationHash();
   record.endedAt = Date.now();
-  record.completed = true;
-  await store.saveSession(record);
-  state.profile.program = await chooseProgram();
   await store.saveProfile(state.profile);
-  await runProgram(state.profile.program, side !== 'both' ? { record, print: pr } : undefined);
+  await runProgram(state.profile.program, { record, print: pr });
 }
 
 async function feltQuestion(): Promise<string> {
@@ -122,6 +152,9 @@ export async function chooseProgram(): Promise<ProgramId> {
   const wanted = new URLSearchParams(location.search).get('program') ?? 'understudy';
   const id = await flow.choose(['prog-understudy', 'prog-phantom', 'prog-warmup'], `prog-${wanted}`);
   stage.board.hide();
+  if (id !== 'prog-warmup' && state.profile.understudy === null) {
+    if (await chooseSide('left') === 'both') return 'warmup';
+  }
   return id.replace('prog-', '') as ProgramId;
 }
 
@@ -129,11 +162,12 @@ const PROGRAM_SHORT: Record<ProgramId, string> = { understudy: 'Understudy', pha
 
 async function home(): Promise<void> {
   flow.step = 'home';
+  flow.currentRecord = null;
   stage.stone({ id: 'home-today', label: 'Today', sub: 'session', icon: 'next', accent: PALETTE.good });
   stage.stone({ id: 'home-progress', label: 'Progress', icon: 'chart' });
   stage.stone({ id: 'home-program', label: 'Programme', sub: PROGRAM_SHORT[state.profile.program], icon: 'mirror' });
   stage.stone({ id: 'home-settings', label: 'Settings', icon: 'settings' });
-  flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: 'Your table is ready.' });
+  flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: store.sandbox ? 'Temporary sample session. Personal history is safe.' : store.persistent ? 'Your table is ready.' : 'Storage unavailable. Export from Settings before leaving.' });
   const id = await flow.choose(['home-today', 'home-progress', 'home-program', 'home-settings'], 'home-today');
   if (id === 'home-today') await runProgram(state.profile.program);
   else if (id === 'home-progress') await (await import('./progress.js')).showProgress();

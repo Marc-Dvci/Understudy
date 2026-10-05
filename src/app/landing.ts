@@ -7,6 +7,7 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   const root = document.getElementById('landing');
   const start = document.getElementById('start') as HTMLButtonElement | null;
   const status = document.getElementById('status');
+  const demoPaths = document.getElementById('demo-paths');
   if (!root || !start || !status) return;
 
   const xr = (navigator as Navigator & { xr?: XRSystem }).xr;
@@ -15,10 +16,11 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   const emulated = !!(window as unknown as { __IWSDK_EMULATION_PROFILE?: { active?: boolean } }).__IWSDK_EMULATION_PROFILE?.active;
   // ?seed=21 starts from three weeks of simulated sessions, so a single visit
   // can show the hand-over and the progress charts of a later day
-  const sample = Number(new URLSearchParams(location.search).get('seed') ?? 0) > 0;
+  const query = new URLSearchParams(location.search);
+  const sample = Number(query.get('seed') ?? 0) > 0;
   const later = sample
-    ? ' Three weeks of <strong>sample history</strong> are loaded, marked as simulated. <a href="?fresh">Start from day one instead</a>.'
-    : ' To see a later day, with the hand-over and progress charts, <a href="?fresh&amp;seed=21">start with three weeks of sample history</a>.';
+    ? ' <strong>Sample history</strong> is loaded in a separate temporary session. Your saved data stays intact. <a href="./">Return to your own sessions</a>.'
+    : ' To see the hand-over and progress charts, <a href="?fresh&amp;seed=21">try three weeks of sample history</a>. This keeps your saved sessions intact.';
   const check = async () => {
     let ar = false;
     try {
@@ -29,14 +31,24 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
     if (ar && emulated) {
       start.disabled = false;
       start.textContent = 'Watch the demo';
+      if (demoPaths) {
+        demoPaths.hidden = false;
+        const link = demoPaths.querySelector('a');
+        const note = demoPaths.querySelector('.demo-note');
+        if (link && sample) {
+          link.setAttribute('href', '?fresh');
+          link.textContent = 'See the first session';
+          if (note) note.textContent = 'Start with no sample history.';
+        }
+      }
       status.innerHTML =
         (sample
           ? 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through a session three weeks in, over sample history marked as simulated. <a href="?fresh">Watch the first session instead</a>.'
           : 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through the first session, or <a href="?fresh&amp;seed=21">a session three weeks in</a>.') +
-        ' To use Understudy yourself, open this page in the <strong>Meta Quest Browser</strong>.';
+        ' Demo measurements are simulated and kept separate from personal history. To use Understudy yourself, open this page in the <strong>Meta Quest Browser</strong>.';
     } else if (ar) {
       start.disabled = false;
-      status.innerHTML = `Sit at a table with both hands free. No controllers needed.${later}`;
+      status.innerHTML = `Sit at a table with your working hand free. No controllers needed.${query.has('fresh') && !sample ? ' This is a temporary practice session. <a href="./">Return to your saved sessions</a>.' : later}`;
     } else {
       start.disabled = true;
       status.innerHTML =

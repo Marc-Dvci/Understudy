@@ -12,6 +12,7 @@ import { createSystem } from '@iwsdk/core';
 import { Handedness, J } from '../core/joints.js';
 import { clamp, dot3, v3 } from '../core/math.js';
 import { state, TrackedHand } from './state.js';
+import { store } from './store.js';
 
 const ANCHOR_KEY = 'understudy.station.anchor';
 const FLAT_SECONDS = 0.8;
@@ -29,6 +30,7 @@ export class StationSystem extends createSystem({}) {
   private restoreWait = -1;
   private readonly listeners: Listener[] = [];
   private readonly tmp = v3();
+  private sessionSeen: XRSession | null = null;
   searching = false;
   /** Test switch: behave as in a room without Space Setup. */
   ignoreLabels = false;
@@ -56,6 +58,15 @@ export class StationSystem extends createSystem({}) {
   update(delta: number): void {
     const frame = this.world.renderer.xr.getFrame() as XRFrame | null;
     const ref = this.world.renderer.xr.getReferenceSpace();
+    const session = this.world.session;
+    if (session && session !== this.sessionSeen) {
+      this.sessionSeen = session;
+      this.anchor = null;
+      this.anchorRequested = false;
+      this.restoreTried = false;
+      this.restoreWait = -1;
+      state.station.anchored = false;
+    }
 
     if (state.station.ready && this.anchor && frame && ref) {
       const pose = frame.getPose(this.anchor.anchorSpace, ref);
@@ -249,6 +260,7 @@ export class StationSystem extends createSystem({}) {
   }
 
   private async saveAnchor(): Promise<void> {
+    if (state.emulated || store.sandbox) return;
     const frame = this.world.renderer.xr.getFrame() as (XRFrame & { createAnchor?: XRFrame['createAnchor'] }) | null;
     const ref = this.world.renderer.xr.getReferenceSpace();
     if (!frame?.createAnchor || !ref || this.anchorRequested) return;
@@ -310,6 +322,7 @@ export class StationSystem extends createSystem({}) {
   }
 
   private async restoreAnchor(frame: XRFrame): Promise<void> {
+    if (state.emulated || store.sandbox) return;
     let handle: string | null = null;
     try {
       handle = localStorage.getItem(ANCHOR_KEY);
@@ -336,6 +349,17 @@ export class StationSystem extends createSystem({}) {
         /* ignore */
       }
     }
+  }
+
+  async eraseAnchor(): Promise<void> {
+    if (store.sandbox) return;
+    const handle = localStorage.getItem(ANCHOR_KEY);
+    const session = this.world.session as XRSession & { deletePersistentAnchor?: (handle: string) => Promise<void> };
+    if (handle && session?.deletePersistentAnchor) await session.deletePersistentAnchor(handle);
+    localStorage.removeItem(ANCHOR_KEY);
+    this.anchor?.delete();
+    this.anchor = null;
+    state.station.anchored = false;
   }
 }
 

@@ -1,27 +1,30 @@
 /**
  * Measures the app's own frame time on the device it runs on and steps down
- * cost when frames run long, in this order: more foveation, 90 to 72 Hz,
- * the cheaper hand shader. It also builds the diagnostics code: a short
+ * refresh rate when frames run long, without reducing visual quality.
+ * It also builds the diagnostics code: a short
  * string a tester can read out that summarises how the device performed.
  */
 import { createSystem } from '@iwsdk/core';
 import { APP_VERSION } from '../core/records.js';
 import { flow } from './flow/engine.js';
-import { stage } from './stage.js';
 import { state } from './state.js';
 
 const WINDOW = 180;
+const CHECK_EVERY = 30;
 
 export class QualitySystem extends createSystem({}) {
   private readonly frames = new Float32Array(WINDOW);
+  private readonly sorted = new Float32Array(WINDOW);
   private n = 0;
+  private sampleElapsed = 0;
   private over = 0;
   private total = 0;
   private slowFor = 0;
   step = 0;
   targetHz = 90;
   private sessionSeen: XRSession | null = null;
-  private all: number[] = [];
+  private readonly all = new Float32Array(20000);
+  private allCount = 0;
 
   update(delta: number): void {
     const session = this.world.session;
@@ -29,18 +32,21 @@ export class QualitySystem extends createSystem({}) {
       this.sessionSeen = session;
       this.onSession(session);
     }
-    if (!state.immersive || delta <= 0 || delta > 0.5) return;
+    if (!state.immersive || flow.paused || delta <= 0 || delta > 0.5) return;
     this.frames[this.n % WINDOW] = delta;
     this.n++;
     this.total++;
     if (delta > 1 / 60 + 0.001) this.over++;
-    if (this.all.length < 20000) this.all.push(delta);
+    if (this.allCount < this.all.length) this.all[this.allCount++] = delta;
     if (this.n < WINDOW) return;
+    this.sampleElapsed += delta;
+    if (this.n % CHECK_EVERY !== 0) return;
     const p95 = this.percentile(0.95);
     const budget = 1.12 / this.targetHz;
-    if (p95 > budget) this.slowFor += delta;
+    if (p95 > budget) this.slowFor += this.sampleElapsed;
     else this.slowFor = 0;
-    if (this.slowFor > 2 && this.step < 3) {
+    this.sampleElapsed = 0;
+    if (this.slowFor > 2 && this.step < 2) {
       this.slowFor = 0;
       this.n = 0;
       this.stepDown();
@@ -48,42 +54,44 @@ export class QualitySystem extends createSystem({}) {
   }
 
   private onSession(session: XRSession): void {
-    const s = session as XRSession & { supportedFrameRates?: Float32Array; updateTargetFrameRate?: (r: number) => Promise<void> };
+    const s = session as XRSession & { frameRate?: number; supportedFrameRates?: Float32Array; updateTargetFrameRate?: (r: number) => Promise<void> };
     const rates = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
-    this.targetHz = rates.includes(90) ? 90 : rates.includes(72) ? 72 : 72;
+    this.n = this.sampleElapsed = this.slowFor = this.total = this.over = 0;
+    this.step = 0;
+    this.allCount = 0;
+    this.targetHz = rates.includes(90) ? 90 : rates.includes(72) ? 72 : s.frameRate ?? rates[0] ?? 72;
     if (rates.includes(this.targetHz)) void s.updateTargetFrameRate?.(this.targetHz).catch(() => undefined);
+    // Keep the authored material and resolution throughout the session.
     this.world.renderer.xr.setFoveation(0.5);
   }
 
   private stepDown(): void {
     this.step++;
-    if (this.step === 1) {
-      this.world.renderer.xr.setFoveation(1);
-    } else if (this.step === 2) {
-      const s = this.world.session as (XRSession & { updateTargetFrameRate?: (r: number) => Promise<void> }) | undefined;
-      this.targetHz = 72;
-      void s?.updateTargetFrameRate?.(72).catch(() => undefined);
-    } else if (this.step === 3) {
-      // the skin shader without its sheen and clearcoat lobes; tone, ghosts
-      // and occluders keep their own materials
-      stage.skin.sheen = 0;
-      stage.skin.clearcoat = 0;
-      stage.skin.needsUpdate = true;
+    if (this.step <= 2) {
+      const s = this.world.session as (XRSession & { supportedFrameRates?: Float32Array; updateTargetFrameRate?: (r: number) => Promise<void> }) | undefined;
+      const rates = s?.supportedFrameRates ? Array.from(s.supportedFrameRates).filter((r) => r >= 60 && r < this.targetHz) : [];
+      const lower = rates.includes(72) ? 72 : rates.length ? Math.max(...rates) : null;
+      if (lower !== null) {
+        this.targetHz = lower;
+        void s?.updateTargetFrameRate?.(lower).catch(() => undefined);
+      }
     }
   }
 
   private percentile(p: number): number {
-    const v = Array.from(this.frames).sort((a, b) => a - b);
-    return v[Math.min(v.length - 1, Math.floor(p * v.length))];
+    this.sorted.set(this.frames);
+    this.sorted.sort();
+    return this.sorted[Math.min(WINDOW - 1, Math.floor(p * WINDOW))];
   }
 
   /** Summary for the diagnostics code. */
   summary(): Record<string, string | number> {
-    const v = [...this.all].sort((a, b) => a - b);
+    const v = Array.from(this.all.subarray(0, this.allCount)).sort((a, b) => a - b);
     const q = (p: number) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : 0);
     const feats = ((this.world.session as XRSession & { enabledFeatures?: string[] } | undefined)?.enabledFeatures ?? []).join(' ');
     const ua = navigator.userAgent;
-    const device = /Quest 3S/i.test(ua) ? 'Q3S' : /Quest 3/i.test(ua) ? 'Q3' : /Quest Pro/i.test(ua) ? 'QP' : /Quest/i.test(ua) ? 'Q' : state.emulated ? 'EMU' : 'OTHER';
+    // IWER can emulate a Quest user agent. Mark emulation before parsing it.
+    const device = state.emulated ? 'EMU' : /Quest 3S/i.test(ua) ? 'Q3S' : /Quest 3/i.test(ua) ? 'Q3' : /Quest Pro/i.test(ua) ? 'QP' : /Quest/i.test(ua) ? 'Q' : 'OTHER';
     const valid = (state.hands.left.boneSamples > 0 ? 1 : 0) + (state.hands.right.boneSamples > 0 ? 1 : 0);
     return {
       app: APP_VERSION,

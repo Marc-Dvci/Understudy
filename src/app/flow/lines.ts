@@ -4,9 +4,11 @@
  * public/voice/<id>.mp3.
  */
 export const LINES: Record<string, string> = {
-  welcome: 'Welcome to Understudy. Rest both hands on the table, palms down.',
+  welcome: 'Welcome to Understudy. Rest your working hand on the table, palm down. One hand is enough.',
   'station-found': 'Your table is ready.',
-  'station-hint': 'Put both hands flat on the table and keep them still for a moment.',
+  'station-hint': 'Rest your working hand flat on the table and keep it still for a moment.',
+  'comfort': 'Move comfortably and follow your care team\'s advice. Stop if pain increases. Pause and Stop stay at the near edge of your mat. Hand measurements are estimates.',
+  'print-missing': 'Some readings are unavailable. Bring tracked hands into view to retry, or continue in Watch.',
   'which-hand': 'Which hand needs help? Touch a stone. You can press right down onto the table.',
   'handprint-intro': 'First, a hand print. Three quick movements, three times, with both hands.',
   open: 'Open both hands wide.',

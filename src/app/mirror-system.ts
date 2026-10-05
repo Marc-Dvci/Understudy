@@ -15,8 +15,17 @@ import {
   poseToLocal,
 } from '../core/rehearse.js';
 import { leadHand, state, understudyHand } from './state.js';
+import { flow } from './flow/engine.js';
+import type { HandKinematics } from '../core/kinematics.js';
 
 export type AttemptPhase = 'off' | 'calibrating' | 'on';
+
+function fingerAngle(k: HandKinematics, f: number): number {
+  return f === 0 ? k.thumb.mcp + k.thumb.ip : k.fingers[f - 1].sum;
+}
+function handAngle(k: HandKinematics): number {
+  return (k.fingers[0].sum + k.fingers[1].sum + k.fingers[2].sum + k.fingers[3].sum) / 4;
+}
 
 export class MirrorSystem extends createSystem({}) {
   private readonly mirrored = newPose();
@@ -35,6 +44,7 @@ export class MirrorSystem extends createSystem({}) {
   /** When true every finger is driven by the mirror regardless of share. */
   forceWatch = true;
   private readonly offsetVec = v3();
+  private readonly savedShares = new Float64Array(5);
 
   /** Calibrates the midline from both palms and stores the Understudy rest pose. */
   calibrateFromHands(): boolean {
@@ -80,6 +90,7 @@ export class MirrorSystem extends createSystem({}) {
   }
 
   update(delta: number): void {
+    if (!state.immersive || flow.paused) return;
     const m = state.mirror;
     const target = m.active ? 1 : 0;
     m.visibility += (target - m.visibility) * (1 - Math.exp(-delta / 0.25));
@@ -117,10 +128,9 @@ export class MirrorSystem extends createSystem({}) {
     const own = !this.forceWatch && us.valid ? poseToLocal(us.pose, this.lo) : null;
     const rest = m.hasRest ? poseToLocal(m.restPose, this.lr) : null;
     if (this.forceWatch) {
-      const saved = controls.map((c) => c.share);
-      controls.forEach((c) => (c.share = 0));
+      for (let f = 0; f < 5; f++) { this.savedShares[f] = controls[f].share; controls[f].share = 0; }
       blendUnderstudy(this.lm, null, rest, controls, this.out);
-      controls.forEach((c, i) => (c.share = saved[i]));
+      for (let f = 0; f < 5; f++) controls[f].share = this.savedShares[f];
     } else {
       blendUnderstudy(this.lm, own, rest, controls, this.out);
     }
@@ -129,9 +139,6 @@ export class MirrorSystem extends createSystem({}) {
 
   private updateAttempts(dt: number, leadKin: typeof state.hands.left.kin | null, usKin: typeof state.hands.left.kin | null): void {
     if (this.attemptPhase === 'off' || !usKin) return;
-    const fingerAngle = (k: typeof usKin, f: number) =>
-      f === 0 ? k.thumb.mcp + k.thumb.ip : k.fingers[f - 1].sum;
-    const handAngle = (k: typeof usKin) => (k.fingers[0].sum + k.fingers[1].sum + k.fingers[2].sum + k.fingers[3].sum) / 4;
     if (this.attemptPhase === 'calibrating') {
       for (let f = 0; f < 5; f++) this.fingerDetectors[f].calibrate(fingerAngle(usKin, f), dt);
       this.handDetector.calibrate(handAngle(usKin), dt);

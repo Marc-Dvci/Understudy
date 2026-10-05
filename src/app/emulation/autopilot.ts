@@ -19,7 +19,7 @@ import {
   restAngles,
 } from '../../sim/handmodel.js';
 import { opposeAngles } from '../../sim/session.js';
-import { Expect, flow } from '../flow/engine.js';
+import { Expect, flow, FlowInterrupted } from '../flow/engine.js';
 import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
 import { IwerHandDriver } from './iwer-driver.js';
@@ -60,6 +60,8 @@ export class Autopilot {
   enabled = true;
   /** How the simulated user presses stones: poke, hover (dwell) or look (head gaze). */
   inputMode: 'poke' | 'dwell' | 'gaze' = 'poke';
+  /** Regression fixture: remove one hand at the WebXR input-source boundary. */
+  missingHand: Handedness | null = null;
   /** When set, the head turns to look at this world point instead of the mat. */
   private lookAt: Float64Array | null = null;
   private readonly tableY: number;
@@ -176,13 +178,14 @@ export class Autopilot {
     const e = flow.expect;
     if (e !== this.current && !this.busy) {
       this.current = e;
-      void this.act(e);
+      void this.act(e).catch((error: unknown) => { if (!(error instanceof FlowInterrupted)) console.error('[understudy] demo failed', error); });
     }
     this.continuous(e, dt);
     for (const h of ['left', 'right'] as Handedness[]) {
       const a = this.actors[h];
       a.update(dt);
       this.driver.setHand(h, a.build(), this.refFromWorld);
+      this.driver.setConnected(h, h !== this.missingHand);
     }
   }
 
@@ -268,6 +271,7 @@ export class Autopilot {
   }
 
   private pokeHand(): Handedness {
+    if (this.missingHand) return this.missingHand === 'left' ? 'right' : 'left';
     return state.profile.understudy ? leadHand() : 'right';
   }
 

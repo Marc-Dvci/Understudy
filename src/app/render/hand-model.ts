@@ -23,8 +23,6 @@ import {
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { Handedness, JOINT_COUNT, JOINT_NAMES, Pose } from '../../core/joints.js';
 
-let counter = 0;
-
 /** Alpha along the forearm: solid past the model's wrist cap (2 cm), gone by three quarters of its length. */
 let fadeTexture: DataTexture | null = null;
 function forearmFade(): DataTexture {
@@ -68,6 +66,7 @@ export class HandModel {
   private material: Material;
   private forearm: Mesh | null = null;
   private readonly fadedCopies = new Map<Material, Material>();
+  private renderOrder = 2;
   scale = 1;
 
   constructor(handedness: Handedness, material: Material, name: string) {
@@ -84,16 +83,19 @@ export class HandModel {
     // skeleton, so every model is a skinned clone of the cached scene
     const gltf = await AssetManager.loadGLTF(url, `hand-${this.handedness}`);
     const scene = cloneSkinned(gltf.scene) as Group;
-    counter++;
     this.bones = JOINT_NAMES.map((n) => scene.getObjectByName(n) ?? undefined);
     scene.traverse((o) => {
+      // Imported model transforms are static; joint matrices are written in
+      // apply(). Hidden skeletons no longer recompose 25 bones every frame.
+      o.updateMatrix();
+      o.matrixAutoUpdate = false;
       if ((o as Mesh).isMesh) {
         const mesh = o as Mesh;
         mesh.material = this.material;
         mesh.frustumCulled = false;
         mesh.castShadow = false;
         mesh.receiveShadow = false;
-        mesh.renderOrder = 2;
+        mesh.renderOrder = this.renderOrder;
         this.meshes.push(mesh);
       }
     });
@@ -101,7 +103,9 @@ export class HandModel {
     if (wrist) {
       this.forearm = new Mesh(forearmGeometry(), this.forearmMaterial(this.material));
       this.forearm.frustumCulled = false;
-      this.forearm.renderOrder = 2;
+      this.forearm.renderOrder = this.renderOrder;
+      this.forearm.updateMatrix();
+      this.forearm.matrixAutoUpdate = false;
       wrist.add(this.forearm);
     }
     this.root.add(scene);
@@ -126,9 +130,9 @@ export class HandModel {
     // follow tone and shader changes made to the shared hand material
     const src = source as MeshBasicMaterial & { sheen?: number; clearcoat?: number };
     const dst = copy as MeshBasicMaterial & { sheen?: number; clearcoat?: number };
-    if (src.color) dst.color.copy(src.color);
+    if (src.color && !dst.color.equals(src.color)) dst.color.copy(src.color);
     dst.opacity = src.opacity;
-    if (src.sheen !== undefined && dst.sheen !== src.sheen) {
+    if (src.sheen !== undefined && (dst.sheen !== src.sheen || dst.clearcoat !== src.clearcoat)) {
       dst.sheen = src.sheen;
       dst.clearcoat = src.clearcoat;
       dst.needsUpdate = true;
@@ -141,6 +145,7 @@ export class HandModel {
   }
 
   setMaterial(material: Material): void {
+    if (material === this.material) return;
     this.material = material;
     for (const mesh of this.meshes) mesh.material = material;
     if (this.forearm) this.forearm.material = this.forearmMaterial(material);
@@ -151,6 +156,8 @@ export class HandModel {
   }
 
   setRenderOrder(order: number): void {
+    if (order === this.renderOrder) return;
+    this.renderOrder = order;
     for (const mesh of this.meshes) mesh.renderOrder = order;
     if (this.forearm) this.forearm.renderOrder = order;
   }
@@ -158,6 +165,9 @@ export class HandModel {
   /** Writes joint poses to bones. `scale` shrinks or grows the hand about the wrist. */
   apply(pose: Pose): void {
     if (!this.loaded) return;
+    // Mirror/history hands also follow Settings changes to shared materials;
+    // their forearms must not retain the tone from the initial load.
+    if (this.forearm) this.forearmMaterial(this.material);
     const wx = pose[12];
     const wy = pose[13];
     const wz = pose[14];
@@ -172,10 +182,21 @@ export class HandModel {
       }
       bone.position.copy(this.p);
       bone.quaternion.copy(this.q);
+      bone.updateMatrix();
     }
   }
 
   isSkinned(): boolean {
     return this.meshes.some((m) => (m as SkinnedMesh).isSkinnedMesh);
+  }
+
+  dispose(): void {
+    this.root.removeFromParent();
+    this.forearm?.geometry.dispose();
+    for (const material of this.fadedCopies.values()) material.dispose();
+    this.fadedCopies.clear();
+    const skeletons = new Set(this.meshes.filter((mesh) => (mesh as SkinnedMesh).isSkinnedMesh).map((mesh) => (mesh as SkinnedMesh).skeleton));
+    for (const skeleton of skeletons) skeleton.dispose();
+    this.loaded = false;
   }
 }

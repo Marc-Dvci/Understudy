@@ -234,7 +234,7 @@ export function drawProgress(rows: ProgressRow[], title: string, footnote?: stri
     const tagFont = `700 ${Math.round(Math.min(rowH * 0.3, h * 0.065))}px ${FONT}`;
     ctx.font = tagFont;
     // the tags get their own column, so a line never runs under its label
-    const tagW = Math.max(...['Real gain', 'Real drop', 'Steady', 'New'].map((x) => ctx.measureText(x).width));
+    const tagW = Math.max(...['Above margin', 'Below margin', 'Steady', 'No reading', 'New'].map((x) => ctx.measureText(x).width));
     rows.forEach((r, i) => {
       const y0 = h * 0.2 + i * rowH;
       const vals = r.values.filter(Number.isFinite);
@@ -271,7 +271,7 @@ export function drawProgress(rows: ProgressRow[], title: string, footnote?: stri
         ctx.arc(X(vals.length - 1), Y(vals[vals.length - 1]), 12, 0, Math.PI * 2);
         ctx.fill();
       }
-      const tag = r.change === 'improved' ? 'Real gain' : r.change === 'declined' ? 'Real drop' : r.change === 'steady' ? 'Steady' : 'New';
+      const tag = !Number.isFinite(r.latest) ? 'No reading' : r.change === 'improved' ? 'Above margin' : r.change === 'declined' ? 'Below margin' : r.change === 'steady' ? 'Steady' : 'New';
       const tagColor = r.change === 'improved' ? PALETTE.good : r.change === 'declined' ? PALETTE.caution : PALETTE.muted;
       ctx.fillStyle = tagColor;
       ctx.font = tagFont;

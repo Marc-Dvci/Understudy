@@ -5,7 +5,7 @@
 import { Matrix4, Vector3 } from '@iwsdk/core';
 import { Handedness } from '../../core/joints.js';
 import { MetricId } from '../../core/measure.js';
-import { progressFor, seriesFor, metricKey, SessionRecord } from '../../core/records.js';
+import { historyFor, progressFor, seriesFor, metricKey, SessionRecord } from '../../core/records.js';
 import { sound } from '../audio.js';
 import { stage } from '../stage.js';
 import { state, understudyHand } from '../state.js';
@@ -16,8 +16,8 @@ import { flow } from './engine.js';
 
 export async function showProgress(): Promise<void> {
   flow.step = 'progress';
-  const records = (await store.sessions()).filter((r) => r.completed);
   const program = state.profile.program;
+  const records = historyFor(await store.sessions(), program, state.profile.understudy);
   const rows: ProgressRow[] = [];
   const add = (hand: Handedness, id: MetricId, label: string) => {
     const p = progressFor(records, hand, id);
@@ -46,7 +46,13 @@ export async function showProgress(): Promise<void> {
     add('right', 'tam.total', 'Whole-hand range, right');
     add('left', 'tam.total', 'Whole-hand range, left');
   }
-  if (!rows.length) return;
+  if (!rows.length) {
+    stage.board.draw(drawMessage('No measurements yet', ['Complete a session in this programme to start your history.']));
+    stage.board.show();
+    await flow.wait(4);
+    stage.board.hide();
+    return;
+  }
   stage.card.hide();
   if (records.length < 2) {
     // one session has no trend to draw yet
@@ -65,7 +71,7 @@ export async function showProgress(): Promise<void> {
   const simulated = records.some((r) => r.simulated);
   const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated ? ' (simulated history)' : ''}`;
   const ghost = program === 'understudy' ? showGhost(records, us) : null;
-  const note = ghost ? 'On the mat: your closed hand two weeks ago, in blue, and today.' : undefined;
+  const note = ghost ? 'On the mat: an earlier closed hand, in blue, and today.' : 'Margin estimated from simulation and your repeated measurements.';
   stage.board.draw(drawProgress(rows.slice(0, 4), title, note), 1.4);
   stage.board.show();
   void sound.say('progress-intro');
@@ -84,7 +90,10 @@ function showGhost(records: SessionRecord[], hand: Handedness): (() => void) | n
   const withPose = records.filter((r) => r.poses?.[hand]?.fist);
   if (withPose.length < 2) return null;
   const today = withPose[withPose.length - 1].poses![hand]!.fist;
-  const before = withPose[Math.max(0, withPose.length - 15)].poses![hand]!.fist;
+  const cutoff = withPose[withPose.length - 1].startedAt - 14 * 86400000;
+  const older = withPose.filter((r) => r.startedAt <= cutoff);
+  const earlier = older[older.length - 1] ?? withPose[0];
+  const before = earlier.poses![hand]!.fist;
   const s = hand === 'left' ? 1 : -1;
   const f = state.station.forward;
   const r = state.station.right;
@@ -116,7 +125,7 @@ function showGhost(records: SessionRecord[], hand: Handedness): (() => void) | n
   todayModel.setVisible(true);
   // name the two hands on the mat, past the fingertips, so neither is taken for a tracked hand
   stage.mat.labels = [
-    { u: -0.03, v: 0.13, text: '2 weeks ago', color: PALETTE.understudy, align: 'right' },
+    { u: -0.03, v: 0.13, text: 'Earlier', color: PALETTE.understudy, align: 'right' },
     { u: 0.005, v: 0.13, text: 'Today', color: PALETTE.ink, align: 'left' },
   ];
   stage.mat.markDirty();

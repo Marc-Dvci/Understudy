@@ -40,6 +40,8 @@ export class Cloth {
   private readonly mesh: Mesh;
   private readonly base: Float32Array;
   private readonly draped: Float32Array;
+  private readonly drapedNormals: Float32Array;
+  private cpuDeformed = false;
   private settle = 0;
   private target = 0;
   /** Height of the drape over the hand, metres. */
@@ -87,6 +89,11 @@ export class Cloth {
       colors[i * 3 + 2] = k;
     }
     geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    // The animation is an affine transform of this exact drape. Keep all
+    // vertices, folds and shading detail; let the normal matrix do the work.
+    pos.array.set(this.draped);
+    geo.computeVertexNormals();
+    this.drapedNormals = new Float32Array(geo.attributes.normal.array);
     const mat = makeClothMaterial();
     mat.vertexColors = true;
     // felt: colour, loose fibres, a stitched hem a centimetre in; then the hem outline
@@ -164,18 +171,37 @@ export class Cloth {
     else this.settle = Math.max(0, this.settle - dt / 0.4);
     this.group.visible = this.settle > 0.01;
     if (prev === this.settle) return;
-    const pos = this.mesh.geometry.attributes.position as BufferAttribute;
-    const arr = pos.array as Float32Array;
     const t = this.settle;
     // falls from 14 cm, lands with a small overshoot
     const fall = 1 - easeOutBack(t);
-    for (let i = 0; i < pos.count; i++) {
-      const dy = this.draped[i * 3 + 1];
-      arr[i * 3 + 1] = dy + fall * 0.14 * (1 - dy / this.bulge * 0.3);
+    const stretch = 1 - fall * 0.14 * 0.3 / this.bulge;
+    const scale = 0.85 + 0.15 * t;
+    if (stretch > 0) {
+      if (this.cpuDeformed) {
+        const pos = this.mesh.geometry.attributes.position as BufferAttribute;
+        const normal = this.mesh.geometry.attributes.normal as BufferAttribute;
+        pos.array.set(this.draped);
+        normal.array.set(this.drapedNormals);
+        pos.needsUpdate = normal.needsUpdate = true;
+        this.cpuDeformed = false;
+      }
+      this.mesh.position.y = scale * fall * 0.14;
+      this.mesh.scale.set(scale, scale * stretch, scale);
+    } else {
+      // At the very beginning/end, the back-ease can flatten or invert the
+      // surface. Preserve the original winding and normals at that boundary.
+      const pos = this.mesh.geometry.attributes.position as BufferAttribute;
+      const arr = pos.array as Float32Array;
+      for (let i = 0; i < pos.count; i++) {
+        const dy = this.draped[i * 3 + 1];
+        arr[i * 3 + 1] = dy + fall * 0.14 * (1 - dy / this.bulge * 0.3);
+      }
+      pos.needsUpdate = true;
+      this.mesh.geometry.computeVertexNormals();
+      this.mesh.position.y = 0;
+      this.mesh.scale.setScalar(scale);
+      this.cpuDeformed = true;
     }
-    pos.needsUpdate = true;
-    this.mesh.geometry.computeVertexNormals();
-    this.mesh.scale.setScalar(0.85 + 0.15 * t);
   }
 }
 

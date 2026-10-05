@@ -16,7 +16,7 @@ import {
 } from '@iwsdk/core';
 import { Handedness, J } from '../../core/joints.js';
 import { computeKinematics, newKinematics } from '../../core/kinematics.js';
-import { individuation, TapResult } from '../../core/measure.js';
+import { individuation, MIN_VALID_FRAMES, MIN_VALID_SHARE, TapResult } from '../../core/measure.js';
 import { mean } from '../../core/math.js';
 import { sound } from '../audio.js';
 import { PALETTE } from '../render/materials.js';
@@ -24,6 +24,7 @@ import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
 import { captureTapping } from './capture.js';
 import { flow } from './engine.js';
+import { disposeTransient } from './transient.js';
 
 const mirrorKin = newKinematics('left');
 
@@ -75,6 +76,7 @@ export async function flowerExercise(reps = 6): Promise<{ reps: number; peakOpen
   const lead = leadHand();
   const flowers: Record<string, Flower> = { lead: new Flower('#f19bb5'), us: new Flower('#9bc4f1') };
   stage.table.add(flowers.lead.group, flowers.us.group);
+  const cleanup = flow.addCleanup(() => disposeTransient(flowers.lead.group, flowers.us.group));
   // each flower blooms just beyond its hand's middle fingertip
   const place = (f: Flower, pose: Float32Array, lift: number) => {
     const tip = new Vector3(pose[J.middleTip * 16 + 12], pose[J.middleTip * 16 + 13] - lift, pose[J.middleTip * 16 + 14]);
@@ -115,19 +117,21 @@ export async function flowerExercise(reps = 6): Promise<{ reps: number; peakOpen
     } else if (lo < 0.25) wasOpen = false;
     return count >= reps || flow.time - start > 40;
   });
-  stage.table.remove(flowers.lead.group, flowers.us.group);
+  cleanup();
   return { reps: count, peakOpening: peak };
 }
 
 // ------------------------------------------------------------------ piano
 
-export async function pianoExercise(notes = 8): Promise<{ played: number; individuation: Record<Handedness, number> }> {
+export async function pianoExercise(notes = 8): Promise<{ played: number; individuation: Record<Handedness, number>; validShare: Record<Handedness, number> }> {
   flow.step = 'ex-piano';
   const lead = leadHand();
   const keyGeo = new BoxGeometry(0.02, 0.006, 0.055);
   const keys: { lead: Mesh[]; us: Mesh[] } = { lead: [], us: [] };
   const group = new Group();
   stage.table.add(group);
+  group.name = 'exercise-piano';
+  const cleanup = flow.addCleanup(() => { disposeTransient(group); keyGeo.dispose(); });
   const tipJ = [J.indexTip, J.middleTip, J.ringTip, J.pinkyTip];
   const keyAt = (pose: Float32Array, f: number) => {
     const v = new Vector3(pose[tipJ[f] * 16 + 12], 0, pose[tipJ[f] * 16 + 14]);
@@ -140,21 +144,25 @@ export async function pianoExercise(notes = 8): Promise<{ played: number; indivi
   await flow.wait(1.4);
   const baseLead = [0, 0, 0, 0];
   const baseUs = [0, 0, 0, 0];
-  let n0 = 0;
+  let nLead = 0, nUs = 0, frames = 0;
+  let validLead = 0, validUs = 0;
   const end0 = flow.time + 0.5;
   await flow.until(() => {
     const lk = state.hands[lead].kin;
     const uk = state.hands[understudyHand()].kin;
+    const leadValid = state.hands[lead].valid, usValid = state.hands[understudyHand()].valid;
     for (let i = 0; i < 4; i++) {
-      baseLead[i] += lk.fingers[i].sum;
-      baseUs[i] += uk.fingers[i].sum;
+      if (leadValid) baseLead[i] += lk.fingers[i].sum;
+      if (usValid) baseUs[i] += uk.fingers[i].sum;
     }
-    n0++;
+    frames++;
+    if (leadValid) { nLead++; validLead++; }
+    if (usValid) { nUs++; validUs++; }
     return flow.time >= end0;
   });
   for (let i = 0; i < 4; i++) {
-    baseLead[i] /= Math.max(1, n0);
-    baseUs[i] /= Math.max(1, n0);
+    baseLead[i] = nLead >= MIN_VALID_FRAMES ? baseLead[i] / nLead : NaN;
+    baseUs[i] = nUs >= MIN_VALID_FRAMES ? baseUs[i] / nUs : NaN;
   }
   // one key under each resting fingertip, on both sides
   for (const side of ['lead', 'us'] as const) {
@@ -178,10 +186,12 @@ export async function pianoExercise(notes = 8): Promise<{ played: number; indivi
     const peakUs = [...baseUs];
     const ok = await flow.until(() => {
       const lk = state.hands[lead].kin;
-      lk.fingers.forEach((f, i) => (peakLead[i] = Math.max(peakLead[i], f.sum)));
+      const leadValid = state.hands[lead].valid;
+      frames++;
+      if (leadValid) { validLead++; for (let i = 0; i < 4; i++) peakLead[i] = Math.max(peakLead[i], lk.fingers[i].sum); }
       const us = state.hands[understudyHand()];
-      if (us.valid) us.kin.fingers.forEach((f, i) => (peakUs[i] = Math.max(peakUs[i], f.sum)));
-      return lk.fingers[finger].sum - baseLead[finger] > 28;
+      if (us.valid) { validUs++; for (let i = 0; i < 4; i++) peakUs[i] = Math.max(peakUs[i], us.kin.fingers[i].sum); }
+      return leadValid && lk.fingers[finger].sum - baseLead[finger] > 28;
     }, 8);
     if (ok) {
       played++;
@@ -192,17 +202,18 @@ export async function pianoExercise(notes = 8): Promise<{ played: number; indivi
       keys.us[finger].position.y = 0.001;
       const il = individuation(finger, baseLead, peakLead);
       const iu = individuation(finger, baseUs, peakUs);
-      if (Number.isFinite(il)) indLead.push(il);
-      if (Number.isFinite(iu)) indUs.push(iu);
+      if (Number.isFinite(il) && state.hands[lead].valid) indLead.push(il);
+      if (Number.isFinite(iu) && state.hands[understudyHand()].valid) indUs.push(iu);
     }
     await flow.until(() => state.hands[lead].kin.fingers[finger].sum - baseLead[finger] < 14, 3);
     keys.lead[finger].position.y = 0.003;
     keys.us[finger].position.y = 0.003;
   }
-  stage.table.remove(group);
+  cleanup();
   return {
     played,
-    individuation: { [lead]: mean(indLead), [understudyHand()]: mean(indUs) } as Record<Handedness, number>,
+    individuation: { [lead]: validLead / frames >= MIN_VALID_SHARE ? mean(indLead) : NaN, [understudyHand()]: validUs / frames >= MIN_VALID_SHARE ? mean(indUs) : NaN } as Record<Handedness, number>,
+    validShare: { [lead]: validLead / frames, [understudyHand()]: validUs / frames } as Record<Handedness, number>,
   };
 }
 
@@ -214,6 +225,7 @@ export async function thumbExercise(rounds = 1): Promise<{ touches: number }> {
   const light = new Mesh(new SphereGeometry(0.009, 16, 12), new MeshStandardMaterial({ color: new Color('#ffffff'), emissive: new Color(PALETTE.lead), emissiveIntensity: 1.2 }));
   const lightUs = new Mesh(light.geometry, new MeshStandardMaterial({ color: new Color('#ffffff'), emissive: new Color(PALETTE.understudy), emissiveIntensity: 1.2 }));
   stage.root.add(light, lightUs);
+  const cleanup = flow.addCleanup(() => disposeTransient(light, lightUs));
   flow.say('ex-thumb', { icon: 'thumb', title: 'Thumb touches', body: 'Thumb to each fingertip in turn.' });
   const tips = [J.indexTip, J.middleTip, J.ringTip, J.pinkyTip];
   let touches = 0;
@@ -221,6 +233,7 @@ export async function thumbExercise(rounds = 1): Promise<{ touches: number }> {
     for (let f = 0; f < 4; f++) {
       flow.expect = { kind: 'thumb-touch', finger: f };
       const ok = await flow.until(() => {
+        if (!state.hands[lead].valid) return false;
         const p = state.hands[lead].pose;
         light.position.set(p[tips[f] * 16 + 12], p[tips[f] * 16 + 13] + 0.012, p[tips[f] * 16 + 14]);
         const q = state.mirror.renderPose;
@@ -238,7 +251,7 @@ export async function thumbExercise(rounds = 1): Promise<{ touches: number }> {
       await flow.wait(0.35);
     }
   }
-  stage.root.remove(light, lightUs);
+  cleanup();
   return { touches };
 }
 
@@ -255,7 +268,11 @@ export async function tapExercise(seconds = 10): Promise<Record<Handedness, TapR
   dot.rotation.x = -Math.PI / 2;
   dot.position.set(0, 0.002, -0.14);
   stage.table.add(dot);
-  const run = captureTapping(['left', 'right'], seconds);
+  const cleanup = flow.addCleanup(() => disposeTransient(dot));
+  let result: Record<Handedness, TapResult> | undefined;
+  const run = captureTapping(['left', 'right'], seconds).then((value) => { result = value; });
+  // The awaited flow below owns interruption; handle the sibling capture too.
+  void run.catch(() => undefined);
   const end = flow.time + seconds;
   await flow.until(() => {
     if (flow.time >= next) {
@@ -267,7 +284,7 @@ export async function tapExercise(seconds = 10): Promise<Record<Handedness, TapR
     m.emissiveIntensity *= 0.9;
     return flow.time >= end;
   }, seconds + 1);
-  const result = await run;
-  stage.table.remove(dot);
-  return result;
+  await run;
+  cleanup();
+  return result!;
 }

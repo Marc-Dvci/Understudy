@@ -1,0 +1,10 @@
+* text=auto
+* whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.glb binary
+*.mp3 binary
+*.mp4 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.woff2 binary
+*.hdr binary

@@ -3,12 +3,13 @@
  *
  * Every finger carries three numbers:
  *  - share (w): how much of the finger's rendered movement is its own, set by
- *    measured recovery and changed only by a real change (see `updateShare`);
+ *    measured range and changed only above an estimated error margin
+ *    (see `updateShare`);
  *  - gain (g): amplification of the finger's own movement, decaying to 1 as
  *    the share rises and capped so the render never exceeds twice the real
  *    movement;
  *  - gate: 1 while an attempt is detected on that finger (see attempt.ts), so
- *    in Rehearse the mirror only helps a finger that is trying.
+ *    in Rehearse the mirror helps when the detector reports an attempt.
  *
  * Blending happens on joint-local rotations, then forward kinematics rebuilds
  * the pose, so bone lengths are preserved and fingers never stretch.
@@ -229,8 +230,8 @@ export interface ShareState {
 
 /**
  * Moves the share only when the finger's range has changed by more than the
- * minimal detectable change since the share was last set. Noise never moves
- * the hand-over.
+ * estimated minimal detectable change since the share was last set. This
+ * threshold limits noise-driven changes under the stated tracker model.
  */
 export function updateShare(
   state: ShareState,

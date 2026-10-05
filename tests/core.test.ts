@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeDrift, driftSentence } from '../src/core/embodiment.js';
 import { GmiSession, lateralityBlock, nextGmiStage, scoreLaterality } from '../src/core/gmi.js';
 import { analyseTapping, fitWarmup, individuation, timeToFist } from '../src/core/measure.js';
-import { metricKey, progressFor, SessionRecord, sharesFromHistory, toCsv } from '../src/core/records.js';
+import { historyFor, metricKey, progressFor, SessionRecord, sharesFromHistory, toCsv } from '../src/core/records.js';
 import { belowUsualTwice, classifyChange, estimateError, mdc95, semFromSeries, spearman, usualRange } from '../src/core/stats.js';
 
 describe('stats', () => {
@@ -71,6 +71,22 @@ describe('measurement analyses', () => {
   });
 });
 
+describe('tracking quality in tapping', () => {
+  it('keeps an untracked hand unavailable instead of reporting zero taps per second', () => {
+    const t = Array.from({ length: 100 }, (_, i) => i / 72);
+    const r = analyseTapping(t, t.map(() => NaN));
+    expect(r.rate).toBeNaN();
+    expect(r.validShare).toBe(0);
+  });
+  it('does not count a closure across a tracking gap', () => {
+    const t = Array.from({ length: 100 }, (_, i) => i / 72);
+    const g = t.map((_, i) => i < 30 ? 0.06 : i < 40 ? NaN : 0.01);
+    const r = analyseTapping(t, g);
+    expect(r.taps).toBe(0);
+    expect(r.validShare).toBe(0.9);
+  });
+});
+
 describe('embodiment drift', () => {
   it('measures movement of the felt position toward the virtual hand', () => {
     const d = computeDrift({ x: 0, z: 0 }, { x: 0.12, z: 0 }, [{ x: 0.01, z: 0 }, { x: -0.01, z: 0 }], [{ x: 0.04, z: 0 }, { x: 0.03, z: 0.01 }]);
@@ -123,6 +139,26 @@ function record(i: number, own: number[], lead: number[]): SessionRecord {
 }
 
 describe('records', () => {
+  it('reports an unavailable latest reading without substituting an older gain', () => {
+    const hist = [record(0, [60, 60, 60, 60], [240, 240, 240, 240]), record(1, [150, 150, 150, 150], [240, 240, 240, 240]), record(2, [NaN, NaN, NaN, NaN], [240, 240, 240, 240])];
+    const p = progressFor(hist, 'left', 'tam.index');
+    expect(p.latest).toBeNaN();
+    expect(p.change).toBe('unknown');
+    expect(p.flagged).toBe(false);
+  });
+  it('separates programmes, hand roles and unfinished sessions', () => {
+    const base = record(0, [60, 60, 60, 60], [240, 240, 240, 240]);
+    const mixed = [base, { ...base, id: 'warm', program: 'warmup' as const }, { ...base, id: 'right', understudy: 'right' as const }, { ...base, id: 'partial', completed: false }];
+    expect(historyFor(mixed, 'understudy', 'left').map((r) => r.id)).toEqual([base.id]);
+    expect(sharesFromHistory(mixed, 'left')).toEqual(sharesFromHistory([base], 'left'));
+  });
+  it('labels simulated and unfinished rows and escapes CSV metadata', () => {
+    const r = { ...record(0, [60, 60, 60, 60], [240, 240, 240, 240]), id: 'sample,"quoted"', simulated: true, completed: false };
+    const csv = toCsv([r]);
+    expect(csv).toContain('simulated,completed');
+    expect(csv).toContain('"sample,""quoted"""');
+    expect(csv).toContain('true,false');
+  });
   it('replays the hand-over from history: share rises with real recovery', () => {
     const lead = [240, 250, 240, 220];
     const early = Array.from({ length: 6 }, (_, i) => record(i, [60, 60, 60, 60], lead));
@@ -142,5 +178,7 @@ describe('records', () => {
     const csv = toCsv([record(0, [60, 61, 62, 63], [240, 241, 242, 243])]);
     expect(csv.split('\n')[0]).toContain('left:tam.index');
     expect(csv.split('\n')[1]).toContain('60.00');
+    expect(csv.split('\n')[0]).toContain('left:tam.index:valid_share');
+    expect(csv.split('\n')[1]).toContain('"[58,60,62]"');
   });
 });

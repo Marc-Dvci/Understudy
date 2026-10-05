@@ -12,6 +12,7 @@ const MAX_WRIST_SPEED = 4; // m/s; faster jumps are tracking glitches
 const BONE_TOLERANCE = 0.15;
 const CALIBRATION_FRAMES = 45;
 const RELEARN_AFTER = 1; // seconds of rejected skeletons before bone lengths are learnt again
+const HANDS: readonly Handedness[] = ['left', 'right'];
 
 export class HandInputSystem extends createSystem({}) {
   private readonly raw = new Float32Array(POSE_FLOATS);
@@ -21,12 +22,17 @@ export class HandInputSystem extends createSystem({}) {
   private readonly tmp = v3();
   private readonly seen = { left: false, right: false };
   private readonly rejected = { left: 0, right: 0 };
+  private sessionSeen: XRSession | undefined;
 
   update(delta: number, time: number): void {
     state.time = time;
     const frame = this.world.renderer.xr.getFrame() as XRFrame | null;
     const ref = this.world.renderer.xr.getReferenceSpace();
     const session = this.world.session;
+    if (session !== this.sessionSeen) {
+      this.spaces.clear();
+      this.sessionSeen = session;
+    }
     this.seen.left = false;
     this.seen.right = false;
 
@@ -66,7 +72,7 @@ export class HandInputSystem extends createSystem({}) {
       state.controllers = controllers;
     }
 
-    for (const h of ['left', 'right'] as Handedness[]) this.finish(state.hands[h], this.seen[h], delta);
+    for (const h of HANDS) this.finish(state.hands[h], this.seen[h], delta);
   }
 
   private finish(hand: TrackedHand, seen: boolean, dt: number): void {

@@ -9,6 +9,7 @@ import { sound } from '../audio.js';
 import { stage } from '../stage.js';
 import { CardContent } from '../ui/card.js';
 import { LINES } from './lines.js';
+import type { SessionRecord } from '../../core/records.js';
 
 export type Expect =
   | { kind: 'idle' }
@@ -28,14 +29,24 @@ export type Expect =
 interface Waiter {
   until: () => boolean;
   resolve: (v: boolean) => void;
+  reject: (reason: Error) => void;
   deadline: number;
+}
+
+export class FlowInterrupted extends Error {
+  constructor() { super('Session stopped'); this.name = 'FlowInterrupted'; }
 }
 
 export class FlowEngine {
   time = 0;
   expect: Expect = { kind: 'idle' };
   private waiters: Waiter[] = [];
-  paused = false;
+  suspended = false;
+  userPaused = false;
+  currentRecord: SessionRecord | null = null;
+  get paused(): boolean { return this.suspended || this.userPaused; }
+  private readonly pending: Waiter[] = [];
+  private readonly cleanups = new Set<() => void>();
   private _step = 'boot';
   /** Step transitions with flow time, for diagnostics and tests. */
   readonly log: { t: number; step: string }[] = [];
@@ -54,13 +65,17 @@ export class FlowEngine {
   update(dt: number): void {
     if (this.paused) return;
     this.time += dt;
-    const pending = this.waiters;
-    this.waiters = [];
+    const pending = this.pending;
+    pending.push(...this.waiters);
+    this.waiters.length = 0;
     for (const w of pending) {
-      if (w.until()) w.resolve(true);
-      else if (this.time >= w.deadline) w.resolve(false);
-      else this.waiters.push(w);
+      try {
+        if (w.until()) w.resolve(true);
+        else if (this.time >= w.deadline) w.resolve(false);
+        else this.waiters.push(w);
+      } catch (error) { w.reject(error instanceof Error ? error : new Error(String(error))); }
     }
+    pending.length = 0;
   }
 
   /** Waits `seconds` of flow time. */
@@ -71,9 +86,26 @@ export class FlowEngine {
 
   /** Waits for a condition; resolves false on timeout. */
   until(pred: () => boolean, timeout = Infinity): Promise<boolean> {
-    return new Promise((resolve) => {
-      this.waiters.push({ until: pred, resolve, deadline: this.time + timeout });
+    return new Promise((resolve, reject) => {
+      this.waiters.push({ until: pred, resolve, reject, deadline: this.time + timeout });
     });
+  }
+
+  interrupt(): void {
+    const reason = new FlowInterrupted();
+    for (const w of this.waiters) w.reject(reason);
+    this.waiters.length = 0;
+    stage.press.cancelPending(reason);
+    this.userPaused = false;
+    this.expect = { kind: 'idle' };
+    for (const cleanup of this.cleanups) cleanup();
+  }
+
+  /** Exercise objects are removed on completion and on Stop. */
+  addCleanup(fn: () => void): () => void {
+    const cleanup = () => { this.cleanups.delete(cleanup); fn(); };
+    this.cleanups.add(cleanup);
+    return cleanup;
   }
 
   /**

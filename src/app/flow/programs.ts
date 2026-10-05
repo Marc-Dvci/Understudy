@@ -5,7 +5,7 @@ import { GmiSession, GmiStage, lateralityBlock, LateralityAnswer, nextGmiStage, 
 import { Handedness } from '../../core/joints.js';
 import { METRICS, MetricId } from '../../core/measure.js';
 import { q4, quatAxisAngle, quatMul, RAD, v3 } from '../../core/math.js';
-import { fiveShares, metricKey, ProgramId, SessionRecord, sharesFromHistory } from '../../core/records.js';
+import { fiveShares, historyFor, metricKey, ProgramId, SessionRecord, sharesFromHistory } from '../../core/records.js';
 import { gainFromRange, stageOf } from '../../core/rehearse.js';
 import { buildPose, fistAngles, lerpAngles, neutralAngles, openAngles, restAngles, HandAngles } from '../../sim/handmodel.js';
 import { pointAngles } from '../../sim/actor.js';
@@ -36,12 +36,13 @@ export async function runProgram(p: ProgramId, carried?: CarriedPrint): Promise<
 }
 
 async function finish(record: SessionRecord, lines: string[]): Promise<void> {
+  flow.step = 'done';
   record.endedAt = Date.now();
   record.completed = true;
   await store.saveSession(record);
   await store.saveProfile(state.profile);
   sound.chime();
-  flow.say('session-done', { icon: 'check', title: 'Well done', body: 'That is today\'s session.', accent: PALETTE.good });
+  flow.say('session-done', { icon: 'check', title: 'Well done', body: store.persistent ? 'Today is saved on this headset.' : store.sandbox ? 'Sample session complete.' : 'Session complete. Storage unavailable; export before leaving.', accent: PALETTE.good });
   await flow.wait(2.5);
   await showProgress();
   stage.board.draw(drawMessage('See you tomorrow', lines, PALETTE.good));
@@ -60,7 +61,8 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
   // on the first visit the tour's Hand Print is today's: the session goes
   // straight on to the exercises instead of measuring the same hands again
   const record = carried?.record ?? newRecord('understudy');
-  const history = (await store.sessions()).filter((r) => r.completed && r.id !== record.id);
+  flow.currentRecord = record;
+  const history = historyFor(await store.sessions(), 'understudy', state.profile.understudy).filter((r) => r.id !== record.id);
   if (!carried) {
     const pr = await handPrint(['left', 'right']);
     recordPrint(record, pr);
@@ -70,7 +72,8 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
 
   // shares from every session including today's
   const all = [...history, record];
-  const fingerShares = sharesFromHistory(all, understudyHand());
+  const measuredShares = sharesFromHistory(all, understudyHand());
+  const fingerShares = measuredShares.map((share, f) => Number.isFinite(record.metrics[metricKey(understudyHand(), ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'][f] as MetricId)]?.value) ? share : 0);
   const shares = fiveShares(fingerShares);
   const fingers: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
   const own = fingers.map((id) => record.metrics[metricKey(understudyHand(), id)]?.value ?? NaN);
@@ -83,14 +86,18 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
   record.shares = shares;
   record.stage = stageOf(state.mirror.controls);
 
-  if (!(await startMirror())) return;
+  if (!(await startMirror())) {
+    flow.say(null, { icon: 'hand', title: 'Bring your Lead hand into view', body: 'Return home and try again when tracking is ready.' });
+    await flow.wait(4);
+    return;
+  }
   const mirror = services.mirror!;
   // learn how still the hidden hand is
   flow.expect = { kind: 'rest' };
   flow.say('attempt-rest', { icon: 'pause', title: 'Rest your hidden hand', body: 'Ten seconds. Keep it still.' });
   mirror.startAttemptCalibration(10);
   await flow.until(() => mirror.attemptPhase === 'on', 14);
-  mirror.forceWatch = false;
+  mirror.forceWatch = mirror.attemptPhase !== 'on';
   const stageLabel = record.stage === 'watch' ? 'Watch' : record.stage === 'perform' ? 'Perform' : 'Rehearse';
   const drawLive = () => {
     const gates = [0, 1, 2, 3, 4].map((f) => Math.max(mirror.handDetector.gate, mirror.fingerDetectors[f].gate));
@@ -104,7 +111,7 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
     if (liveTimer.t % 6 === 0) drawLive();
     return false;
   };
-  void flow.until(() => tick() || flow.step === 'done');
+  void flow.until(() => tick() || flow.step === 'done').catch(() => undefined);
 
   flow.say('attempt-try', { icon: 'mirror', title: 'Try with both hands', body: 'Even a little movement counts.' });
   await flow.wait(3);
@@ -119,22 +126,21 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
     { id: 'tap', seconds: 10, reps: taps[leadHand()].taps },
   );
   for (const h of ['left', 'right'] as Handedness[]) {
-    const put = (id: MetricId, value: number) => {
-      if (Number.isFinite(value)) record.metrics[metricKey(h, id)] = { value, trials: [value], validShare: 1 };
+    const put = (id: MetricId, value: number, validShare: number) => {
+      record.metrics[metricKey(h, id)] = { value, trials: [value], validShare };
     };
-    put('individuation', piano.individuation[h]);
-    put('tap.rate', taps[h].rate);
-    put('tap.amplitude', taps[h].amplitude);
-    put('tap.decrement', taps[h].decrement);
+    put('individuation', piano.individuation[h], piano.validShare[h]);
+    put('tap.rate', taps[h].rate, taps[h].validShare);
+    put('tap.amplitude', taps[h].amplitude, taps[h].validShare);
+    put('tap.decrement', taps[h].decrement, taps[h].validShare);
   }
-  flow.step = 'done';
   stopMirror();
   mirror.forceWatch = true;
   mirror.attemptPhase = 'off';
   stage.meter.hide();
   const sharePct = Math.round((shares.slice(1).reduce((a, b) => a + b, 0) / 4) * 100);
   await finish(record, [
-    `Your ${understudyHand()} hand performed ${sharePct}% of its own movement today.`,
+    `The mirror used a ${sharePct}% own-movement setting today.`,
     'The share only moves when a change is bigger than the margin of error.',
   ]);
 }
@@ -146,7 +152,8 @@ async function phantomSession(): Promise<void> {
   if (!state.profile.understudy) state.profile.understudy = 'left';
   await stage.setUnderstudySide(services.base);
   const record = newRecord('phantom');
-  const history = (await store.sessions()).filter((r) => r.program === 'phantom' && r.completed);
+  flow.currentRecord = record;
+  const history = historyFor(await store.sessions(), 'phantom', state.profile.understudy);
   const gmiHistory: GmiSession[] = history.map((r) => ({
     stage: (r.stage as GmiStage) ?? 'recognise',
     painBefore: r.painBefore ?? 0,
@@ -239,9 +246,9 @@ async function recogniseBlock(seed: string): Promise<ReturnType<typeof scoreLate
     const t0 = flow.time;
     flow.expect = { kind: 'press', id: s.hand === 'left' ? 'lat-left' : 'lat-right' };
     let answer: string | null = null;
-    const got = stage.press.wait(['lat-left', 'lat-right']).then((id) => (answer = id));
-    await flow.until(() => answer !== null, 8);
-    void got;
+    const off = stage.press.onPress((id) => { if (id === 'lat-left' || id === 'lat-right') answer = id; });
+    try { await flow.until(() => answer !== null, 8); }
+    finally { off(); }
     model.setVisible(false);
     const correct = answer === (s.hand === 'left' ? 'lat-left' : 'lat-right');
     if (answer) sound.chime(undefined, correct);
@@ -281,17 +288,16 @@ async function imagineBlock(): Promise<void> {
     flow.say(i === 0 ? null : null, { icon: 'eye', title: 'Imagine your hand doing this', step: { index: i, total: postures.length } });
     flow.expect = { kind: 'press', id: 'imagine-done' };
     let done = false;
-    const pressed = stage.press.wait(['imagine-done']).then(() => (done = true));
+    const off = stage.press.onPress((id) => { if (id === 'imagine-done') done = true; });
     const start = flow.time;
     const cur = neutralAngles();
-    await flow.until(() => {
+    try { await flow.until(() => {
       const t = flow.time - start;
       const k = 0.5 - 0.5 * Math.cos((t * 2 * Math.PI) / 4);
       lerpAngles(rest, target, k, cur);
       model.apply(buildPose(cur, understudyHand(), { length: 0.19 }, { position: v3(place.x, place.y, place.z + 0.06), orientation: q }));
       return done && t > 3;
-    }, 30);
-    void pressed;
+    }, 30); } finally { off(); }
     sound.press();
   }
   model.setVisible(false);
@@ -329,7 +335,8 @@ async function phantomMirror(): Promise<void> {
 async function warmupSession(): Promise<void> {
   flow.step = 'warmup';
   const record = newRecord('warmup');
-  const history = (await store.sessions()).filter((r) => r.completed);
+  flow.currentRecord = record;
+  const history = historyFor(await store.sessions(), 'warmup', state.profile.understudy);
   const last = history.length ? history[history.length - 1].stiffnessSelf ?? 3 : 3;
   record.stiffnessSelf = await painCheck('before', last, 'stiff');
 

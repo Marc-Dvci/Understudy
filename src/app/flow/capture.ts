@@ -2,7 +2,7 @@
  * Live capture of measurement trials from the tracked hands.
  */
 import { Handedness } from '../../core/joints.js';
-import { analyseTapping, fitWarmup, handPrintFromTrials, HandPrint, robustPeak, TapResult, TrialBuffer, WarmupFit } from '../../core/measure.js';
+import { analyseTapping, fitWarmup, handPrintFromTrials, HandPrint, MIN_VALID_FRAMES, MIN_VALID_SHARE, robustPeak, TapResult, TrialBuffer, WarmupFit } from '../../core/measure.js';
 import { state } from '../state.js';
 import { flow } from './engine.js';
 
@@ -48,7 +48,7 @@ export type Movement = 'open' | 'fist' | 'oppose';
 export function sessionPrint(trials: HandPrint[]): { tam: number[]; tamTotal: number; opening: number; spread: number; kapandji: number; validShare: number } {
   const med = (xs: number[]) => {
     const v = xs.filter(Number.isFinite).sort((a, b) => a - b);
-    if (!v.length) return NaN;
+    if (v.length < 2) return NaN;
     const m = v.length >> 1;
     return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
   };
@@ -58,7 +58,7 @@ export function sessionPrint(trials: HandPrint[]): { tam: number[]; tamTotal: nu
     opening: med(trials.map((t) => t.opening)),
     spread: med(trials.map((t) => t.spread)),
     kapandji: med(trials.map((t) => t.kapandji)),
-    validShare: Math.min(...trials.map((t) => t.validShare)),
+    validShare: trials.length ? Math.min(...trials.map((t) => t.validShare)) : 0,
   };
 }
 
@@ -87,13 +87,15 @@ export async function captureTapping(hands: Handedness[], seconds = 10): Promise
 /** Peak summed finger flexion during one repetition window. */
 export async function captureRepPeak(hand: Handedness, seconds: number): Promise<number> {
   const sums: number[] = [];
+  let frames = 0;
   const end = flow.time + seconds;
   await flow.until(() => {
+    frames++;
     const k = state.hands[hand].kin;
     if (state.hands[hand].valid) sums.push(k.fingers[0].sum + k.fingers[1].sum + k.fingers[2].sum + k.fingers[3].sum);
     return flow.time >= end;
   });
-  return robustPeak(sums);
+  return sums.length >= MIN_VALID_FRAMES && sums.length / frames >= MIN_VALID_SHARE ? robustPeak(sums) : NaN;
 }
 
 export function warmupFrom(ranges: number[]): WarmupFit | null {

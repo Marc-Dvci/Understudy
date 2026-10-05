@@ -12,6 +12,21 @@ export class Sound {
   enabled = true;
   voiceEnabled = true;
   base = './';
+  private voiceGeneration = 0;
+  private paused = false;
+  private readonly listenerTargets = new Float64Array(9).fill(NaN);
+
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (paused) void this.ctx?.suspend().catch(() => undefined);
+    else void this.ctx?.resume().catch(() => undefined);
+  }
+
+  stopVoice(): void {
+    this.voiceGeneration++;
+    this.voiceSource?.stop();
+    this.voiceSource = null;
+  }
 
   /** Must be called from a user gesture. */
   resume(): void {
@@ -23,7 +38,7 @@ export class Sound {
       this.master.gain.value = 0.9;
       this.master.connect(this.ctx.destination);
     }
-    void this.ctx.resume();
+    if (!this.paused) void this.ctx.resume().catch(() => undefined);
   }
 
   get ready(): boolean {
@@ -35,16 +50,24 @@ export class Sound {
     if (!l) return;
     if (l.positionX) {
       const t = this.ctx!.currentTime;
-      l.positionX.setTargetAtTime(px, t, 0.02);
-      l.positionY.setTargetAtTime(py, t, 0.02);
-      l.positionZ.setTargetAtTime(pz, t, 0.02);
-      l.forwardX.setTargetAtTime(fx, t, 0.02);
-      l.forwardY.setTargetAtTime(fy, t, 0.02);
-      l.forwardZ.setTargetAtTime(fz, t, 0.02);
-      l.upX.setTargetAtTime(ux, t, 0.02);
-      l.upY.setTargetAtTime(uy, t, 0.02);
-      l.upZ.setTargetAtTime(uz, t, 0.02);
+      this.listenerTarget(l.positionX, 0, px, t);
+      this.listenerTarget(l.positionY, 1, py, t);
+      this.listenerTarget(l.positionZ, 2, pz, t);
+      this.listenerTarget(l.forwardX, 3, fx, t);
+      this.listenerTarget(l.forwardY, 4, fy, t);
+      this.listenerTarget(l.forwardZ, 5, fz, t);
+      this.listenerTarget(l.upX, 6, ux, t);
+      this.listenerTarget(l.upY, 7, uy, t);
+      this.listenerTarget(l.upZ, 8, uz, t);
     }
+  }
+
+  private listenerTarget(param: AudioParam, index: number, value: number, time: number): void {
+    // Repeating the same exponential target produces the same curve, while
+    // needlessly growing the audio automation queue (nine events per frame).
+    if (this.listenerTargets[index] === value) return;
+    this.listenerTargets[index] = value;
+    param.setTargetAtTime(value, time, 0.02);
   }
 
   private out(pos?: ArrayLike<number>): AudioNode | null {
@@ -189,6 +212,7 @@ export class Sound {
 
   /** Plays a recorded voice line; resolves when it ends or after `fallback` seconds. */
   async say(id: string): Promise<void> {
+    const generation = ++this.voiceGeneration;
     if (!this.voiceEnabled || !this.ctx || !this.master) return;
     let buf = this.buffers.get(id);
     if (!buf) {
@@ -201,6 +225,8 @@ export class Sound {
         return;
       }
     }
+    // A slower earlier fetch must never speak over the current instruction.
+    if (generation !== this.voiceGeneration || !this.voiceEnabled) return;
     this.voiceSource?.stop();
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
