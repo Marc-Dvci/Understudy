@@ -218,6 +218,8 @@ export function shareFromRange(ownRange: number, leadRange: number, floor: numbe
 /** Amplification gain: the ratio that would make the finger's range match the Lead's, capped. */
 export function gainFromRange(ownRange: number, leadRange: number, share: number): number {
   if (share >= 1) return 1;
+  // A missing reference trial must not put NaN into the rendered pose.
+  if (!Number.isFinite(leadRange)) return 1;
   if (!(ownRange > 1)) return MAX_GAIN;
   return clamp(leadRange / ownRange, 1, MAX_GAIN);
 }

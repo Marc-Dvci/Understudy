@@ -1,0 +1,45 @@
+{
+  "scope": "Desktop production build in Meta IWER. Simulated hands and history. No physical Quest or participant verification.",
+  "checkedOn": "2026-10-05",
+  "showcase": {
+    "passed": true,
+    "checks": [
+      "Primary desktop input enters active XR and reaches a non-recording handover with real sample-derived per-finger shares",
+      "The scene viewport stays above the controls, with no overlay on the app",
+      "Watch, Perform and Rehearse inputs change the actual render controls and retain finite poses",
+      "Progress includes the earlier pose and remains inspectable; Pause freezes the flow and Resume continues it",
+      "Changing chapters while paused resumes safely and removes the Progress ghost",
+      "Hand Print measures the simulated actor through the live path and preserves the 21 prepared records",
+      "Replay can be interrupted; Full app opens the complete later-session path",
+      "The GPU-independent explanation loads real model data; visit and finger controls update the values and chart",
+      "Narrow desktop layout keeps its scene and controls separate without horizontal overflow"
+    ],
+    "secondsFromStartToHandover": 6.075,
+    "newSessionsSaved": 0,
+    "pageErrors": 0
+  },
+  "firstSessionRegression": {
+    "passed": true,
+    "input": "Right Lead, poke",
+    "completed": [
+      "Done",
+      "Progress",
+      "Home"
+    ],
+    "seconds": 191,
+    "maxDrawCalls": 66,
+    "maxTriangles": 44612
+  },
+  "offlineProjectPath": {
+    "passed": true,
+    "path": "/Understudy/",
+    "cacheEntries": 81,
+    "checks": [
+      "Offline XR handover, actual mode input and Progress work under /Understudy/",
+      "Offline explanation, keyboard-compatible model controls, previews and self-hosted fonts work under /Understudy/"
+    ],
+    "firstPartyErrors": 0,
+    "optionalEmulatorMeshRequests": 4
+  },
+  "limits": "Desktop timings and render counts do not establish 60 fps, tracking accuracy, comfort or anchor persistence on Quest hardware."
+}

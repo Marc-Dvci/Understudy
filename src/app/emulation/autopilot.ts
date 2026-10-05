@@ -23,25 +23,9 @@ import { Expect, flow, FlowInterrupted } from '../flow/engine.js';
 import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
 import { IwerHandDriver } from './iwer-driver.js';
-
-export interface Persona {
-  /** Range fraction of the weak hand per finger (thumb..little). */
-  weakRange: number[];
-  weakSide: Handedness;
-  /** Drift the persona feels toward the virtual hand, metres. */
-  drift: number;
-  /** Morning stiffness: share of range missing on the first fist, and its warm-up constant in fists. */
-  stiffness: number;
-  stiffTau: number;
-}
-
-export const DEMO_PERSONA: Persona = {
-  weakRange: [0.45, 0.4, 0.35, 0.3, 0.25],
-  weakSide: 'left',
-  drift: 0.034,
-  stiffness: 0.28,
-  stiffTau: 2.2,
-};
+import { DEMO_PERSONA, Persona } from '../../sim/persona.js';
+export { DEMO_PERSONA } from '../../sim/persona.js';
+export type { Persona } from '../../sim/persona.js';
 
 export class Autopilot {
   readonly driver: IwerHandDriver;
@@ -357,6 +341,12 @@ export class Autopilot {
         t.fingers[finger].mcpFlex += 45 * k;
         t.fingers[finger].pipFlex += 40 * k;
         a.setImmediate(t);
+      }
+      // The short showcase compares the same movement with both simulated
+      // hands moving. The original session actor remains Lead-only here.
+      if (e.bothHands) {
+        const weak = understudyHand();
+        this.actors[weak].setImmediate(this.reach(weak, a.angles));
       }
     } else if (e.kind === 'tap-rhythm') {
       this.tapPhase += dt;

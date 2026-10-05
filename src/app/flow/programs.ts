@@ -2,11 +2,12 @@
  * The three daily programmes.
  */
 import { GmiSession, GmiStage, lateralityBlock, LateralityAnswer, nextGmiStage, Posture, scoreLaterality } from '../../core/gmi.js';
+import { assistanceForSession } from '../../core/assistance.js';
 import { Handedness } from '../../core/joints.js';
 import { METRICS, MetricId } from '../../core/measure.js';
 import { q4, quatAxisAngle, quatMul, RAD, v3 } from '../../core/math.js';
-import { fiveShares, historyFor, metricKey, ProgramId, SessionRecord, sharesFromHistory } from '../../core/records.js';
-import { gainFromRange, stageOf } from '../../core/rehearse.js';
+import { historyFor, metricKey, ProgramId, SessionRecord } from '../../core/records.js';
+import { stageOf } from '../../core/rehearse.js';
 import { buildPose, fistAngles, lerpAngles, neutralAngles, openAngles, restAngles, HandAngles } from '../../sim/handmodel.js';
 import { pointAngles } from '../../sim/actor.js';
 import { sound } from '../audio.js';
@@ -70,18 +71,11 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
     stage.board.hide();
   }
 
-  // shares from every session including today's
-  const all = [...history, record];
-  const measuredShares = sharesFromHistory(all, understudyHand());
-  const fingerShares = measuredShares.map((share, f) => Number.isFinite(record.metrics[metricKey(understudyHand(), ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'][f] as MetricId)]?.value) ? share : 0);
-  const shares = fiveShares(fingerShares);
-  const fingers: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
-  const own = fingers.map((id) => record.metrics[metricKey(understudyHand(), id)]?.value ?? NaN);
-  const ref = fingers.map((id) => record.metrics[metricKey(leadHand(), id)]?.value ?? NaN);
+  const measuredControls = assistanceForSession(history, record, understudyHand());
+  const shares = measuredControls.map((control) => control.share);
   state.mirror.controls.forEach((c, f) => {
-    c.share = shares[f];
-    const i = Math.max(0, f - 1);
-    c.gain = gainFromRange(own[i], ref[i], c.share);
+    c.share = measuredControls[f].share;
+    c.gain = measuredControls[f].gain;
   });
   record.shares = shares;
   record.stage = stageOf(state.mirror.controls);

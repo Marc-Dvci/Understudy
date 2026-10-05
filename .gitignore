@@ -52,3 +52,26 @@ validation/last-run.log
 
 # rendered film clips
 film/footage/
+
+# Local production, audits and coding-assistant configuration
+film/
+.agents/
+.claude/
+.cursor/
+.codex/
+.vscode/
+.github/instructions/
+AGENTS.md
+**/AGENTS.md
+CLAUDE.md
+opencode.json
+docs/PERFORMANCE.md
+docs/QUEST_TEST_PROTOCOL.md
+tools/*
+!tools/precache.mjs
+!tools/site-evidence.mjs
+validation/audit/
+validation/*-results.json
+validation/fixtures/
+validation/performance-*.json
+validation/render-equivalence-*.json

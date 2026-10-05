@@ -12,6 +12,7 @@ import { drawMessage } from '../ui/viz.js';
 import { flow, FlowInterrupted } from './engine.js';
 import { runProgram } from './programs.js';
 import { services } from './services.js';
+import { showcaseChapter } from '../emulation/showcase-options.js';
 import {
   chooseSide,
   embodimentCheck,
@@ -49,7 +50,8 @@ function calibrationHash(): string {
 
 export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   const query = new URLSearchParams(location.search);
-  const requestedSeed = Number(query.get('seed') ?? 0);
+  const showcase = showcaseChapter(query, state.emulated);
+  const requestedSeed = showcase ? 21 : Number(query.get('seed') ?? 0);
   const seedN = Number.isFinite(requestedSeed) ? Math.max(0, Math.min(56, Math.floor(requestedSeed))) : 0;
   await store.init({ sandbox: !!options.fresh || state.emulated || seedN > 0 });
   // demo: start from simulated history (?seed=21), marked as simulated on screen
@@ -65,6 +67,9 @@ export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   sound.voiceEnabled = state.profile.voice;
   const records = await store.sessions();
   await findTable();
+  if (showcase) {
+    await (await import('../emulation/showcase.js')).runShowcase(showcase, records);
+  }
   try {
     if (!saved || records.length === 0) await firstVisit(records);
   } catch (error) { await recover(error); }

@@ -18,6 +18,7 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   // can show the hand-over and the progress charts of a later day
   const query = new URLSearchParams(location.search);
   const sample = Number(query.get('seed') ?? 0) > 0;
+  const quick = emulated && (query.has('showcase') || query.size === 0);
   const later = sample
     ? ' <strong>Sample history</strong> is loaded in a separate temporary session. Your saved data stays intact. <a href="./">Return to your own sessions</a>.'
     : ' To see the hand-over and progress charts, <a href="?fresh&amp;seed=21">try three weeks of sample history</a>. This keeps your saved sessions intact.';
@@ -30,22 +31,17 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
     }
     if (ar && emulated) {
       start.disabled = false;
-      start.textContent = 'Watch the demo';
+      start.textContent = quick ? 'Explore handover' : 'Watch the demo';
       if (demoPaths) {
         demoPaths.hidden = false;
-        const link = demoPaths.querySelector('a');
-        const note = demoPaths.querySelector('.demo-note');
-        if (link && sample) {
-          link.setAttribute('href', '?fresh');
-          link.textContent = 'See the first session';
-          if (note) note.textContent = 'Start with no sample history.';
-        }
       }
       status.innerHTML =
-        (sample
-          ? 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through a session three weeks in, over sample history marked as simulated. <a href="?fresh">Watch the first session instead</a>.'
-          : 'This computer runs the Meta WebXR emulator. A simulated user with a weak left hand goes through the first session, or <a href="?fresh&amp;seed=21">a session three weeks in</a>.') +
-        ' Demo measurements are simulated and kept separate from personal history. To use Understudy yourself, open this page in the <strong>Meta Quest Browser</strong>.';
+        (quick
+          ? 'Explore the actual app in Meta’s WebXR emulator. Jump between handover, Progress and Hand Print, and compare the three render modes at your own pace.'
+          : sample
+            ? 'Watch a complete later visit with three weeks of sample history in Meta’s WebXR emulator.'
+            : 'Watch first-time setup and a complete session in Meta’s WebXR emulator.') +
+        ' Hands and history are simulated; samples stay separate from personal records. For your own session, use <strong>Meta Quest Browser</strong>.';
     } else if (ar) {
       start.disabled = false;
       status.innerHTML = `Sit at a table with your working hand free. No controllers needed.${query.has('fresh') && !sample ? ' This is a temporary practice session. <a href="./">Return to your saved sessions</a>.' : later}`;
@@ -59,6 +55,17 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
 
   start.addEventListener('click', () => {
     onGesture();
+    if (quick && !query.has('showcase')) {
+      const next = new URL(location.href);
+      next.searchParams.set('fresh', '');
+      next.searchParams.set('showcase', 'handover');
+      window.history.replaceState(null, '', next);
+    }
+    if (quick) {
+      // Reserve a desktop control strip. The emulator's visible compositor
+      // scales the full-size XR image uniformly into the remaining space.
+      document.body.classList.add('showcase-active');
+    }
     // the click that starts the demo also unlocks audio, so the voice plays
     if (emulated) onDemo();
     world.launchXR();

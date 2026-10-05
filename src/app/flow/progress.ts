@@ -14,7 +14,7 @@ import { drawMessage, drawProgress, ProgressRow } from '../ui/viz.js';
 import { PALETTE } from '../render/materials.js';
 import { flow } from './engine.js';
 
-export async function showProgress(): Promise<void> {
+export async function showProgress(options: { hold?: boolean } = {}): Promise<void> {
   flow.step = 'progress';
   const program = state.profile.program;
   const records = historyFor(await store.sessions(), program, state.profile.understudy);
@@ -71,17 +71,22 @@ export async function showProgress(): Promise<void> {
   const simulated = records.some((r) => r.simulated);
   const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated ? ' (simulated history)' : ''}`;
   const ghost = program === 'understudy' ? showGhost(records, us) : null;
-  const note = ghost ? 'On the mat: an earlier closed hand, in blue, and today.' : 'Margin estimated from simulation and your repeated measurements.';
+  const note = ghost ? 'On the mat: an earlier closed hand, in blue, and the latest pose.' : 'Margin estimated from simulation and your repeated measurements.';
   stage.board.draw(drawProgress(rows.slice(0, 4), title, note), 1.4);
   stage.board.show();
   void sound.say('progress-intro');
-  await flow.wait(ghost ? 9 : 7);
-  ghost?.();
-  stage.board.hide();
+  const hideGhost = ghost ? flow.addCleanup(ghost) : () => {};
+  try {
+    if (options.hold) await flow.until(() => false);
+    else await flow.wait(ghost ? 9 : 7);
+  } finally {
+    hideGhost();
+    stage.board.hide();
+  }
 }
 
 /**
- * Today's fullest fist beside a ghost of the same hand two weeks ago. Both
+ * The latest recorded fist beside a ghost of the same hand two weeks ago. Both
  * stand thumb up in the middle of the mat, fingers pointing away, so the curl
  * of each finger reads from the seat and the forearms run back between the
  * resting hands. Returns a function that hides them.
@@ -126,7 +131,7 @@ function showGhost(records: SessionRecord[], hand: Handedness): (() => void) | n
   // name the two hands on the mat, past the fingertips, so neither is taken for a tracked hand
   stage.mat.labels = [
     { u: -0.03, v: 0.13, text: 'Earlier', color: PALETTE.understudy, align: 'right' },
-    { u: 0.005, v: 0.13, text: 'Today', color: PALETTE.ink, align: 'left' },
+    { u: 0.005, v: 0.13, text: 'Latest', color: PALETTE.ink, align: 'left' },
   ];
   stage.mat.markDirty();
   return () => {

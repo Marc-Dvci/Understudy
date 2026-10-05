@@ -16,7 +16,7 @@ export type Expect =
   | { kind: 'rest' }
   | { kind: 'press'; id: string; hand?: Handedness }
   | { kind: 'move'; movement: 'open' | 'fist' | 'oppose' | 'relax'; hands: Handedness[]; rep?: number }
-  | { kind: 'mirror-play'; style: 'open-close' | 'tap' | 'wiggle' }
+  | { kind: 'mirror-play'; style: 'open-close' | 'tap' | 'wiggle'; bothHands?: boolean }
   | { kind: 'touch'; target: 'hidden-index'; phase: 'pre' | 'post' }
   | { kind: 'flower' }
   | { kind: 'piano'; finger: number }

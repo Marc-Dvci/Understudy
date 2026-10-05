@@ -12,7 +12,7 @@ import { buildPose, fistAngles } from '../../sim/handmodel.js';
 import { TrackerNoise } from '../../sim/noise.js';
 import { achievedPose, healthyParams, noiseSeed, PatientParams } from '../../sim/patient.js';
 import { simulateHandPrint } from '../../sim/session.js';
-import { DEMO_PERSONA } from './autopilot.js';
+import { DEMO_PERSONA } from '../../sim/persona.js';
 
 /** A weak left hand that has recovered, over `sessions` days, to the demo persona's range today. */
 function demoPatient(sessions: number): PatientParams {

@@ -16,7 +16,8 @@
       #scene-container { position: fixed; inset: 0; }
       #landing { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 20%, #fffaf2, var(--paper) 70%); z-index: 10; padding: 16px; box-sizing: border-box; transition: opacity 0.4s; overflow-y: auto; }
       #landing.hidden { opacity: 0; pointer-events: none; }
-      .wrap { max-width: 620px; width: 100%; }
+      .wrap { max-width: 1060px; width: 100%; }
+      .landing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
       .mark { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
       .mark svg { width: 56px; height: 56px; }
       h1 { font-size: clamp(34px, 7vw, 54px); margin: 0; letter-spacing: -0.5px; }
@@ -30,26 +31,53 @@
       #demo-paths[hidden] { display: none; }
       .demo-path { display: inline-block; color: var(--us-text); border: 2px solid var(--us-text); border-radius: 999px; padding: 12px 20px; font-size: 18px; font-weight: 700; text-decoration: none; }
       .demo-path:hover { background: #e5eef7; }
+      .demo-path { margin: 0 8px 8px 0; padding: 10px 16px; font-size: 16px; }
       button#start:focus-visible, a:focus-visible { outline: 3px solid var(--us-text); outline-offset: 4px; }
       .demo-note { display: block; font-size: 14px; color: var(--muted); margin-top: 8px; }
       ul.facts { list-style: none; padding: 0; margin: 30px 0 0; display: grid; gap: 10px; font-size: 16px; color: var(--muted); }
       ul.facts li::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--lead); margin-right: 10px; }
       footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
+      .preview { margin: 0; border: 1px solid #ddd4c6; border-radius: 20px; overflow: hidden; background: #fffaf2; box-shadow: 0 14px 45px #57493618; }
+      .preview img { width: 100%; display: block; aspect-ratio: 3 / 2; object-fit: cover; }
+      .preview figcaption { padding: 18px 22px; font-size: 16px; line-height: 1.45; }
+      .preview figcaption strong { display: block; color: var(--us-text); font-size: 19px; margin-bottom: 5px; }
+      .evidence-link { display: inline-block; margin-top: 20px; color: var(--us-text); font-weight: 700; }
+      .showcase-active #scene-container { bottom: 166px; }
+      .showcase-active [data-webxr_runtime] { inset: 0 0 166px 0 !important; height: calc(100vh - 166px) !important; overflow: hidden !important; z-index: 1000 !important; }
+      .showcase-active [data-webxr_runtime] canvas { position: absolute !important; inset: 0 !important; transform: none !important; width: 100% !important; height: 100% !important; object-fit: contain; }
+      #showcase-controls { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1001; box-sizing: border-box; height: 166px; background: var(--paper); border-top: 2px solid #b8c8d7; padding: 12px 22px; overflow-y: auto; }
+      #showcase-controls[hidden], #showcase-controls [hidden] { display: none; }
+      .showcase-top, .showcase-bottom { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .showcase-top { justify-content: space-between; }
+      #showcase-controls button { font: 700 15px 'Atkinson Hyperlegible', system-ui; border: 1px solid #b4bcc5; border-radius: 9px; padding: 9px 13px; min-height: 40px; background: #fffaf2; color: var(--ink); cursor: pointer; }
+      #showcase-controls button[aria-pressed="true"] { background: var(--us-text); color: #fff; border-color: var(--us-text); }
+      #showcase-controls button:disabled { opacity: 0.55; cursor: default; }
+      #showcase-controls button:focus-visible { outline: 3px solid var(--us-text); outline-offset: 3px; }
+      #showcase-controls nav, #showcase-modes { display: flex; gap: 6px; }
+      #showcase-heading { font-size: 20px; margin: 0; }
+      #showcase-copy { font-size: 15px; margin: 5px 0 8px; color: var(--muted); }
+      #showcase-mode-note { flex: 1; min-width: 220px; font-size: 14px; color: var(--ink); margin: 0; }
+      .showcase-disclosure { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+      @media (max-width: 800px) { .landing-grid { grid-template-columns: 1fr; gap: 24px; } .wrap { max-width: 580px; } .preview img { max-height: 220px; } }
+      @media (max-width: 700px) { #showcase-controls { height: 224px; padding: 10px 12px; } .showcase-active #scene-container { bottom: 224px; } .showcase-active [data-webxr_runtime] { bottom: 224px !important; height: calc(100vh - 224px) !important; } #showcase-controls button { font-size: 14px; padding: 8px 10px; } #showcase-heading { font-size: 18px; } }
+      @media (prefers-reduced-motion: reduce) { #landing { transition: none; } }
     </style>
   </head>
   <body>
     <div id="scene-container"></div>
     <div id="landing">
       <div class="wrap">
+        <div class="landing-grid">
+        <div>
         <div class="mark">
           <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="20" cy="32" r="15" fill="#e8a33d"/><circle cx="44" cy="32" r="15" fill="#4c9be8"/><line x1="32" y1="6" x2="32" y2="58" stroke="#1f2933" stroke-width="3" stroke-dasharray="4 5"/></svg>
           <h1>Understudy</h1>
         </div>
-        <p class="tag">Your strong hand teaches the other one its part. Mirror exercises on your own table, <b>measured every day</b>.</p>
+        <p class="tag">A mirror exercise that hands movement back, <b>finger by finger</b>. A seated routine on your own table, measured each day.</p>
         <button id="start" disabled>Start</button>
         <div id="demo-paths" hidden>
-          <a class="demo-path" href="?fresh&amp;seed=21">See handover and Progress</a>
-          <span class="demo-note">A later session with temporary, simulated history.</span>
+          <a class="demo-path" href="?fresh">Watch the first session</a>
+          <a class="demo-path" href="?fresh&amp;seed=21">Watch a later session</a>
         </div>
         <p id="status" role="status" aria-live="polite">Loading Understudy. The first visit downloads the app for offline use.</p>
         <ul class="facts">
@@ -57,9 +85,39 @@
           <li>Everything stays on your headset. No account.</li>
           <li>For a weak hand after stroke, a missing hand, or stiff morning hands.</li>
         </ul>
+        <a class="evidence-link" href="./evidence.html">See how it works and what has been verified →</a>
         <footer>Exercise prototype. Hand measurements are estimates. Use alongside your care team's advice.</footer>
+        </div>
+        <figure class="preview">
+          <img src="./preview/handover.webp" alt="Actual app: a mirror hand above a felt cloth, with a separate own-movement setting for each finger." width="960" height="640" />
+          <figcaption><strong>Watch → Rehearse → Perform</strong>Each finger blends the Lead’s reflection with its own tracked movement. Repeated measurements guide the assistance setting.<br /><small>Actual app in Meta IWER. Hands and history are simulated.</small></figcaption>
+        </figure>
+        </div>
       </div>
     </div>
+    <section id="showcase-controls" aria-label="Guided sample showcase" hidden>
+      <div class="showcase-top">
+        <h2 id="showcase-heading">Explore Understudy</h2>
+        <nav aria-label="Showcase chapters">
+          <button type="button" data-chapter="handover">Handover</button>
+          <button type="button" data-chapter="progress">Progress</button>
+          <button type="button" data-chapter="measurement">Hand Print</button>
+          <button type="button" id="showcase-pause" aria-pressed="false">Pause</button>
+          <button type="button" id="showcase-replay">Replay</button>
+          <button type="button" id="showcase-exit">Full app</button>
+        </nav>
+      </div>
+      <p id="showcase-copy" role="status" aria-live="polite"></p>
+      <div class="showcase-bottom">
+        <div id="showcase-modes" role="group" aria-label="Compare render modes">
+          <button type="button" data-mode="watch">Watch</button>
+          <button type="button" data-mode="rehearse">Rehearse</button>
+          <button type="button" data-mode="perform">Perform</button>
+        </div>
+        <p id="showcase-mode-note" aria-live="polite"></p>
+      </div>
+      <p class="showcase-disclosure">Actual app in Meta IWER · simulated hands and 21 sample visits · mode comparison uses a prepared calibration · no new session is saved</p>
+    </section>
     <script type="module" src="/src/index.ts"></script>
   </body>
 </html>

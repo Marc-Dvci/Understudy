@@ -1,6 +1,6 @@
 # Validation report
 
-Generated from `validation/results.json` (2026-10-05T18:48:53.052Z), `validation/e2e-results.json` (2026-10-05T18:52:08.239Z) and `validation/s6-results.json` (2026-09-24T20:57:20.859Z) by `tools/report.mjs`. Thresholds for S2 to S9 and S11 were committed in `validation/PREREGISTRATION.md` before those checks were written; the S1 and S10 bars were set in the implementation plan before their tests.
+Synthetic checks were recorded on 5 October 2026 at 18:48 UTC; input journeys and geometry checks at 18:52 UTC. The retained room-placement run dates to 24 September 2026 at 20:57 UTC. The [public emulator summary](../verification/emulator.json) preserves those results. Reference bars were specified before their checks were written and are retained in [the simulation reference](PREREGISTRATION.md). They are project thresholds, not an externally registered study protocol.
 
 Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). Clinical outcomes belong in a future prospective study.
 
@@ -71,7 +71,7 @@ In the held-out cohort, whole-hand attempts of 5 deg are detected 89.5% of the t
 
 Five scanned rooms from IWER's Synthetic Environment Module, table label kept and removed, three seated eye heights (0.36, 0.42, 0.48 m above the table), Meta Quest 3 and Meta VR Glasses profiles.
 
-This is the retained placement run from 2026-09-24T20:57:20.859Z; it was not rerun during the October audit. Device profiles emulate layout and room data, not physical headset tracking or frame rate.
+This placement run was recorded on 24 September 2026 at 20:57 UTC. Device profiles emulate layout and room data. Physical headset tracking and frame rate remain unverified.
 
 | Device, room | Cells passed | Station sources | Max height error |
 |---|---|---|---|

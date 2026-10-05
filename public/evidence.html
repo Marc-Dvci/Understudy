@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="How Understudy turns repeated hand measurements into per-finger mirror assistance, and what its automated checks establish." />
+  <meta name="theme-color" content="#f5f0e8" />
+  <title>How Understudy works</title>
+  <style>
+    @font-face { font-family: Atkinson; src: url('./fonts/atkinson-hyperlegible-latin-400-normal.woff2'); font-weight: 400; font-display: swap; }
+    @font-face { font-family: Atkinson; src: url('./fonts/atkinson-hyperlegible-latin-700-normal.woff2'); font-weight: 700; font-display: swap; }
+    :root { color-scheme: light; --paper: #f5f0e8; --ink: #1f2933; --blue: #1761a4; --muted: #566271; }
+    * { box-sizing: border-box; } [hidden] { display: none !important; } body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.5 Atkinson,system-ui,sans-serif; }
+    main { max-width: 1080px; padding: 28px 24px 60px; margin: auto; } a { color: var(--blue); text-underline-offset: 4px; }
+    nav { display: flex; gap: 20px; flex-wrap: wrap; } h1 { font-size: clamp(34px,5vw,58px); line-height: 1.1; margin: 34px 0 16px; } h2 { font-size: 28px; margin: 0 0 12px; } h3 { font-size: 20px; margin: 0 0 8px; }
+    .lead { font-size: 23px; max-width: 820px; } .muted, small { color: var(--muted); } .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    section, .card { background: #fffaf2; border: 1px solid #d9d2c6; border-radius: 18px; padding: 26px; margin-top: 24px; } .card { margin-top: 0; }
+    figure { margin: 0; } img { width: 100%; height: auto; display: block; border-radius: 12px; } figcaption { font-size: 15px; margin: 10px 0 0; color: var(--muted); }
+    ol { padding-left: 24px; } li { margin: 10px 0; } .tag { color: var(--blue); font-weight: 700; } .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+    input[type=range] { min-width: 220px; flex: 1; accent-color: var(--blue); height: 36px; } select { font: inherit; background: white; border: 1px solid #8d9dad; border-radius: 8px; padding: 8px; }
+    a:focus-visible,input:focus-visible,select:focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; } svg { display: block; width: 100%; height: auto; background: #f5f0e8; border-radius: 12px; }
+    .values { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-top: 18px; } .value { border-left: 4px solid #4c9be8; padding-left: 14px; } .value strong { display: block; font-size: 28px; }
+    .claim { padding: 14px 0; border-bottom: 1px solid #ddd4c6; } .claim:last-child { border: 0; } .claim strong { display: block; } #explanation { min-height: 3em; }
+    .button { display: inline-block; background: var(--ink); color: white; padding: 13px 22px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-right: 12px; }
+    footer { margin-top: 30px; font-size: 15px; color: var(--muted); }
+    @media(max-width:720px) { .grid { grid-template-columns: 1fr; } main { padding: 20px 16px 40px; } section,.card { padding: 20px; } .values { gap: 8px; } .value strong { font-size: 23px; } }
+  </style>
+</head>
+<body>
+<main>
+  <nav aria-label="Page navigation"><a href="./">Understudy</a><a href="./?fresh&amp;showcase=handover">Interactive showcase</a><a href="https://github.com/Marc-Dvci/Understudy">Source code</a></nav>
+  <h1>One mirror.<br />A share for each finger.</h1>
+  <p class="lead">The working hand leads its reflection above a weaker hand. Repeated measurements guide how much of each finger’s displayed movement comes from that reflection and how much comes from its own tracked movement.</p>
+  <p><a class="button" href="./?fresh&amp;showcase=handover">Explore the actual app</a><a href="./?fresh">Watch first-time setup</a></p>
+  <p class="muted">The desktop preview uses Meta’s IWER emulator. Its hands and sample history are simulated. This page can be read without running the emulator.</p>
+
+  <div class="grid">
+    <section><h2>The daily loop</h2><ol>
+      <li><strong>Measure.</strong> Three trials of opening, fist and thumb reach. Unavailable readings stay unavailable.</li>
+      <li><strong>Set assistance.</strong> A separate share for each finger, changed only beyond an estimated error margin.</li>
+      <li><strong>Exercise.</strong> Flower, piano, thumb touches and rhythm, with Pause and Stop within reach.</li>
+      <li><strong>Return.</strong> Compare the next measurement and an earlier closed-hand pose at the same table.</li>
+    </ol></section>
+    <section><h2>The room has a role</h2><p>Passthrough keeps the working hand and table visible. Scene surfaces place the station; resting fingertips provide a fallback. An anchor can restore the station within reach on a later visit.</p><p>Hand joints drive the reflection, measurement and buttons. Controls support one-hand poke, hover dwell, thumb confirmation and head-direction gaze.</p><p class="muted">Head gaze means headset direction. Physical tracking, room placement and anchor persistence still need device validation.</p></section>
+  </div>
+
+  <section aria-labelledby="comparison-title">
+    <h2 id="comparison-title">Explore range, margin and assistance</h2>
+    <p>Explore 21 <strong>simulated</strong> visits. These values come from the same model and assistance rule used by the app. A flat or noisy measurement should not move a finger’s setting each day.</p>
+    <div id="sample-controls" class="controls" hidden><label for="day">Visit <output id="day-output">21</output></label><input id="day" type="range" min="1" max="21" value="21" /><label for="finger">Finger</label><select id="finger"><option value="0">Index</option><option value="1">Middle</option><option value="2">Ring</option><option value="3">Little</option></select></div>
+    <svg id="chart" viewBox="0 0 900 220" role="img" aria-label="Simulated own-movement assistance share across visits" hidden><title>Simulated assistance share</title><path id="share-line" fill="none" stroke="#1761a4" stroke-width="4" stroke-linejoin="round" /><g fill="#566271" font-family="Atkinson, sans-serif" font-size="17"><text x="12" y="32">100%</text><text x="26" y="193">0%</text><text x="74" y="212">Visit 1</text><text x="790" y="212">Visit 21</text></g><line x1="75" y1="185" x2="855" y2="185" stroke="#a8b1ba" /><circle id="share-dot" r="7" fill="#e8a33d" stroke="#1f2933" stroke-width="2" /></svg>
+    <div id="sample-values" class="values" hidden><div class="value"><span>Measured finger range</span><strong id="range-value"></strong></div><div class="value"><span>Estimated change margin</span><strong id="margin-value"></strong></div><div class="value"><span>Own-movement setting</span><strong id="share-value"></strong></div></div>
+    <p id="explanation" role="status" aria-live="polite">The interactive sample loads when JavaScript is available. A share is the rendered blend, rather than a measurement of effort.</p>
+    <small>Range is summed finger flexion in degrees. The change margin is MDC95 = 1.96 × √2 × SEM. Progress compares with its historical baseline; the assistance rule uses a separate last-change anchor. Neither establishes clinical recovery.</small>
+  </section>
+
+  <div class="grid">
+    <section><h2>Handover</h2><figure><img src="./preview/handover.webp" alt="Actual emulator capture showing separate assistance settings for five fingers." width="960" height="640" loading="lazy" /><figcaption>Actual app render. Actor and history are simulated.</figcaption></figure><p>Watch follows the reflection. Rehearse blends reflected and own motion. Perform follows own motion. The thumb uses the fingers’ average share because it has no separate finger-range metric.</p></section>
+    <section><h2>The next visit</h2><figure><img src="./preview/progress.webp" alt="Progress chart with estimated error labels and an earlier blue hand beside the latest hand pose." width="960" height="640" loading="lazy" /><figcaption>Simulated history, visibly labelled inside the app.</figcaption></figure><p>Progress preserves the uncertainty: Above margin, Below margin, or within the estimated margin. Personal history stays local; sample sessions use separate temporary storage.</p></section>
+  </div>
+
+  <section><h2>What has been verified?</h2>
+    <div class="claim"><strong id="unit-proof">Automated software tests</strong>Kinematics, mirror geometry, statistics, history, storage, accessible input, audio and frame-work controls. <a href="https://github.com/Marc-Dvci/Understudy/tree/main/tests">Inspect the tests</a>.</div>
+    <div class="claim"><strong>Four complete first-session emulator journeys</strong>Left and right poke, hover dwell and head gaze. Both simulated hands provide measurement input.</div>
+    <div class="claim"><strong>60 retained room-placement checks</strong>Five scanned rooms, two device profiles, three seat heights, labels on and off. Recorded on 24 September 2026 in IWER.</div>
+    <div class="claim"><strong>Production offline session and interruption checks</strong>Bundled models, fonts and voice; Pause, Resume, Stop, CSV export, confirmed erasure and a disconnected-hand Phantom path.</div>
+    <p><a href="https://github.com/Marc-Dvci/Understudy/blob/main/validation/REPORT.md">Read the stated validation model and results</a>.</p>
+  </section>
+  <section><h2>What remains unverified?</h2><p>Physical Quest frame rate, tracker accuracy, anchor persistence, comfort, intended-user usability and clinical benefit. No participants or physical headsets were used.</p><p>The stated simulation misses its original 5° single-finger attempt-detection target. Very small movements can be missed. The full routine can continue in Watch when a measurement is unavailable.</p></section>
+  <footer>Built by Marc Donovici for the Meta VR Start Developer Competition 2026. Exercise prototype; measurements are estimates. Use alongside your care team’s advice.</footer>
+</main>
+<script>
+  (async () => {
+    try {
+      const response = await fetch('./evidence-data.json');
+      if (!response.ok) throw new Error('Sample unavailable');
+      const data = await response.json();
+      const byId = (id) => document.getElementById(id);
+      const day = byId('day'), finger = byId('finger');
+      byId('unit-proof').textContent = `${data.software.unitTests} passing automated software tests`;
+      for (const id of ['sample-controls','chart','sample-values']) byId(id).removeAttribute('hidden');
+      const draw = () => {
+        const selected = Number(day.value) - 1, f = Number(finger.value);
+        const value = data.days[selected].fingers[f];
+        byId('day-output').value = day.value;
+        byId('range-value').textContent = `${value.range.toFixed(1)}°`;
+        byId('margin-value').textContent = `${value.margin.toFixed(1)}°`;
+        byId('share-value').textContent = `${Math.round(value.share * 100)}%`;
+        const points = data.days.map((entry, i) => [75 + i * 39, 185 - entry.fingers[f].share * 160]);
+        byId('share-line').setAttribute('d', points.map((point,i) => `${i ? 'L' : 'M'}${point.join(',')}`).join(' '));
+        byId('share-dot').setAttribute('cx', points[selected][0]); byId('share-dot').setAttribute('cy', points[selected][1]);
+        const baseline = Number.isFinite(value.baseline) ? `Progress compares ${value.range.toFixed(1)}° with a ${value.baseline.toFixed(1)}° baseline. ` : 'A first visit has no historical change comparison. ';
+        const verdict = value.change === 'improved' ? 'This simulated increase is above the estimated margin.' : value.change === 'declined' ? 'This simulated decrease is below the estimated margin.' : 'This visit has no change beyond the estimated margin.';
+        byId('explanation').textContent = `${baseline}${verdict} The ${Math.round(value.share * 100)}% share describes the displayed blend.`;
+        byId('chart').setAttribute('aria-label', `${value.name}: simulated own-movement assistance across 21 visits. Visit ${day.value}: ${Math.round(value.share * 100)} percent.`);
+      };
+      day.addEventListener('input', draw); finger.addEventListener('change', draw); draw();
+    } catch {
+      document.getElementById('explanation').textContent = 'The sample could not load. Reload after a successful online visit, or inspect the explanation and source links above.';
+    }
+  })();
+</script>
+</body>
+</html>
