@@ -1,6 +1,6 @@
 # Understudy
 
-A mirror exercise that hands movement back, **finger by finger**. A seated WebXR daily routine for Meta Quest 3 / 3S, built by Marc Donovici for the Meta VR Start Developer Competition 2026.
+A daily mirror exercise for someone practising with one weaker hand, with assistance set **finger by finger**. A seated WebXR routine at their own table, built by Marc Donovici for Meta Quest 3 / 3S and the Meta VR Start Developer Competition 2026.
 
 ![Per-finger assistance in the actual app, with labelled simulated history](docs/images/handover.jpg)
 
@@ -47,6 +47,15 @@ Each Hand Print value needs sufficient tracked frames and at least two usable tr
 History is separated by programme and hand role. Stopped sessions are excluded from progress and handover. Historical decisions use only measurements available on that day. The prepared showcase and full routine share the same assistance function. The showcase isolates the rendering comparison; the full routine also calibrates tracking noise and detects attempts.
 
 ## Evidence and limits
+
+| Claim | Implementation | Verification |
+|---|---|---|
+| Each finger can blend the reflected and tracked movement | [Joint-local blend](src/core/rehearse.ts), [mirror system](src/app/mirror-system.ts) | [Mirror endpoints, local geometry and tracking fallback](tests/mirror.test.ts) |
+| Assistance changes beyond an estimated error margin | [Shared assistance rule](src/core/assistance.ts), [causal history replay](src/core/records.ts) | [Assistance and unavailable readings](tests/assistance.test.ts), [margin and history](tests/core.test.ts) |
+| Untracked measurements stay unavailable | [Measurement](src/core/measure.ts), [kinematics](src/core/kinematics.ts) | [Tracking gaps](tests/core.test.ts), [joint geometry](tests/kinematics.test.ts) |
+| One-hand selection supports poke, dwell, thumb and head gaze | [Input](src/app/ui/press.ts) | [Input regressions](tests/press.test.ts), [retained emulator journeys](verification/emulator.json) |
+| Samples stay separate from personal records; records can be exported or erased | [Storage](src/app/store.ts), [CSV](src/core/records.ts) | [Persistence, isolation and erasure](tests/store.test.ts), [CSV regressions](tests/core.test.ts) |
+| A prepared desktop showcase exposes the actual blend and Progress | [Showcase](src/app/emulation/showcase.ts) | [Native-headset guard](tests/assistance.test.ts), [retained desktop checks](verification/desktop.json) |
 
 55 automated unit tests pass. Four complete first-session emulator input journeys and 60 room-placement checks are retained evidence. The current showcase, first-session regression and offline project path passed their desktop checks; [software and emulator summaries](verification) record their scope. Production offline operation, interruption controls, export/erase and disconnected-hand paths were exercised in the emulator. Dates, model assumptions and the original reference bars are retained in the [validation report](validation/REPORT.md) and [simulation reference](validation/PREREGISTRATION.md).
 

@@ -1,6 +1,6 @@
 # Validation report
 
-Synthetic checks were recorded on 5 October 2026 at 18:48 UTC; input journeys and geometry checks at 18:52 UTC. The retained room-placement run dates to 24 September 2026 at 20:57 UTC. The [public emulator summary](../verification/emulator.json) preserves those results. Reference bars were specified before their checks were written and are retained in [the simulation reference](PREREGISTRATION.md). They are project thresholds, not an externally registered study protocol.
+Synthetic checks were reproduced on 6 October 2026; their numerical results match the retained 5 October reference. Input journeys and geometry checks were recorded on 5 October at 18:52 UTC. The retained room-placement run dates to 24 September 2026 at 20:57 UTC. The [public emulator summary](../verification/emulator.json) preserves those results. Reference bars were specified before their checks were written and are retained in [the simulation reference](PREREGISTRATION.md). They are project thresholds, not an externally registered study protocol.
 
 Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). Clinical outcomes belong in a future prospective study.
 
@@ -73,8 +73,8 @@ Five scanned rooms from IWER's Synthetic Environment Module, table label kept an
 
 This placement run was recorded on 24 September 2026 at 20:57 UTC. Device profiles emulate layout and room data. Physical headset tracking and frame rate remain unverified.
 
-| Device, room | Cells passed | Station sources | Max height error |
-|---|---|---|---|
+| Device | Room | Cells passed | Station sources | Max height error |
+|---|---|---|---|---|
 | metaQuest3 | living_room | 6/6 | table-label, flat-hand | 0.25 cm |
 | metaQuest3 | meeting_room | 6/6 | table-label, flat-hand | 0.25 cm |
 | metaQuest3 | music_room | 6/6 | table-label, lap | 0.31 cm |

@@ -2,6 +2,7 @@
  * The page a visitor sees before entering the headset session.
  */
 import { VisibilityState, World } from '@iwsdk/core';
+import { isShowcaseLanding } from './emulation/showcase-options.js';
 
 export function setupLanding(world: World, onGesture: () => void, onDemo: () => void): void {
   const root = document.getElementById('landing');
@@ -18,7 +19,7 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   // can show the hand-over and the progress charts of a later day
   const query = new URLSearchParams(location.search);
   const sample = Number(query.get('seed') ?? 0) > 0;
-  const quick = emulated && (query.has('showcase') || query.size === 0);
+  const quick = isShowcaseLanding(query, emulated);
   const later = sample
     ? ' <strong>Sample history</strong> is loaded in a separate temporary session. Your saved data stays intact. <a href="./">Return to your own sessions</a>.'
     : ' To see the hand-over and progress charts, <a href="?fresh&amp;seed=21">try three weeks of sample history</a>. This keeps your saved sessions intact.';

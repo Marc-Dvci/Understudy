@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assistanceForSession } from '../src/core/assistance.js';
 import { metricKey, SessionRecord, sharesFromHistory, fiveShares } from '../src/core/records.js';
-import { showcaseChapter } from '../src/app/emulation/showcase-options.js';
+import { isShowcaseLanding, showcaseChapter } from '../src/app/emulation/showcase-options.js';
 
 function record(day: number, range: number): SessionRecord {
   const metrics: SessionRecord['metrics'] = {};
@@ -51,4 +51,11 @@ it('never selects the prepared showcase for a native headset or an ordinary firs
   expect(showcaseChapter(new URLSearchParams('fresh'), true)).toBeNull();
   expect(showcaseChapter(new URLSearchParams('showcase=progress'), true)).toBe('progress');
   expect(showcaseChapter(new URLSearchParams('showcase=unexpected'), true)).toBe('handover');
+  for (const query of ['', 'utm_source=devpost&ref=judge', 'fbclid=sample&gclid=sample', 'showcase=progress']) {
+    expect(isShowcaseLanding(new URLSearchParams(query), true)).toBe(true);
+    expect(isShowcaseLanding(new URLSearchParams(query), false)).toBe(false);
+  }
+  for (const query of ['fresh', 'fresh&seed=21&utm_source=devpost', 'demo', 'manual', 'input=left', 'missing=left']) {
+    expect(isShowcaseLanding(new URLSearchParams(query), true)).toBe(false);
+  }
 });

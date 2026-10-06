@@ -1,6 +1,6 @@
 {
   "scope": "Desktop production build in Meta IWER. Simulated hands and history. No physical Quest or participant verification.",
-  "checkedOn": "2026-10-05",
+  "checkedOn": "2026-10-06",
   "showcase": {
     "passed": true,
     "checks": [
@@ -14,9 +14,10 @@
       "The GPU-independent explanation loads real model data; visit and finger controls update the values and chart",
       "Narrow desktop layout keeps its scene and controls separate without horizontal overflow"
     ],
-    "secondsFromStartToHandover": 6.075,
+    "secondsFromStartToHandover": 6.985,
     "newSessionsSaved": 0,
-    "pageErrors": 0
+    "pageErrors": 0,
+    "checkedOn": "2026-10-06"
   },
   "firstSessionRegression": {
     "passed": true,
@@ -28,7 +29,8 @@
     ],
     "seconds": 191,
     "maxDrawCalls": 66,
-    "maxTriangles": 44612
+    "maxTriangles": 44612,
+    "checkedOn": "2026-10-05"
   },
   "offlineProjectPath": {
     "passed": true,
@@ -39,7 +41,18 @@
       "Offline explanation, keyboard-compatible model controls, previews and self-hosted fonts work under /Understudy/"
     ],
     "firstPartyErrors": 0,
-    "optionalEmulatorMeshRequests": 4
+    "optionalEmulatorMeshRequests": 4,
+    "checkedOn": "2026-10-06"
   },
-  "limits": "Desktop timings and render counts do not establish 60 fps, tracking accuracy, comfort or anchor persistence on Quest hardware."
+  "limits": "Desktop timings and render counts do not establish 60 fps, tracking accuracy, comfort or anchor persistence on Quest hardware.",
+  "referralEntry": {
+    "checkedOn": "2026-10-06",
+    "checks": [
+      "Referral parameters preserve quick entry, active XR, 21 isolated samples and all three actual blend modes",
+      "Progress remains reachable through real chapter input",
+      "Explicit first-session and later-session links retain the full routine"
+    ],
+    "secondsToHandover": 6.632,
+    "pass": true
+  }
 }
