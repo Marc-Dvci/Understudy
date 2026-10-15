@@ -47,7 +47,10 @@ export class FlowSystem extends createSystem({}) {
       if (driver && driver.install()) {
         const q = new URLSearchParams(location.search);
         const input = q.get('input');
-        const persona = { ...DEMO_PERSONA, weakSide: input === 'left' ? ('right' as const) : ('left' as const) };
+        // the weak side is the missing hand when there is one (?missing=), else opposite ?input=left
+        const missingQ = q.get('missing');
+        const weakSide = missingQ === 'left' || missingQ === 'right' ? missingQ : input === 'left' ? ('right' as const) : ('left' as const);
+        const persona = { ...DEMO_PERSONA, weakSide };
         if (q.has('seat')) this.seatHeight = Number(q.get('seat'));
         // tests seat the user at a given table: ?table=x,y,z&facing=fx,fz
         const table = q.get('table')?.split(',').map(Number);

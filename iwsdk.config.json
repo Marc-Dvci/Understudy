@@ -28,8 +28,8 @@
       "canvasPointerEvents": true
     },
     "render": {
-      "near": 0.01,
-      "far": 200,
+      "near": 0.02,
+      "far": 50,
       "camera": {
         "position": [
           0,

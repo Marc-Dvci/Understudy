@@ -191,13 +191,13 @@ export class Stage {
     this.meter.update(dt);
     this.bursts?.update(dt);
     this.press.update(dt);
-    this.updateHands();
+    this.updateHands(dt);
 
     camera.getWorldPosition(this.tmp);
     sound.setListener(this.tmp.x, this.tmp.y, this.tmp.z, state.headForward[0], -0.5, state.headForward[2], 0, 1, 0);
   }
 
-  private updateHands(): void {
+  private updateHands(dt: number): void {
     if (!this.hands) return;
     const style = this.trackedStyle;
     for (const side of ['left', 'right'] as const) {
@@ -218,6 +218,17 @@ export class Stage {
     const m = state.mirror;
     const mirrorModel = this.hands.mirror;
     mirrorModel.setVisible(m.visibility > 0.02);
+    if (m.visibility > 0.02 && m.cloth && this.cloth.settled) {
+      // the mirrored hand rests on the cloth: lift it just enough that no
+      // joint sinks into the drape, so a fist rises over the hump as a real one would
+      let need = 0;
+      for (let j = 0; j < 25; j++) {
+        const p = m.renderPose;
+        const floor = state.station.height + this.cloth.heightAt(p[j * 16 + 12], p[j * 16 + 14]) + 0.0075;
+        need = Math.max(need, floor - p[j * 16 + 13]);
+      }
+      this.mirrorLift += (need - this.mirrorLift) * (1 - Math.exp(-dt / 0.08));
+    }
     if (m.visibility > 0.02) {
       if (this.mirrorLift !== 0) {
         for (let j = 0; j < 25; j++) m.renderPose[j * 16 + 13] += this.mirrorLift;

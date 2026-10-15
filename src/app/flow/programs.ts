@@ -200,7 +200,9 @@ async function phantomSession(): Promise<void> {
     laterality: r.laterality,
     completed: r.completed,
   }));
-  const decision = nextGmiStage(gmiHistory);
+  const decision = state.gmiStage
+    ? { stage: state.gmiStage, reason: 'Recognise and Imagine have held steady, so today moves on.' }
+    : nextGmiStage(gmiHistory);
   const lastPain = history.length ? history[history.length - 1].painAfter ?? 3 : 3;
   record.painBefore = await painCheck('before', lastPain);
   record.stage = decision.stage;
@@ -346,20 +348,50 @@ async function imagineBlock(): Promise<void> {
 async function phantomMirror(): Promise<void> {
   flow.step = 'phantom-mirror';
   flow.say('residual-touch', { icon: 'touch', title: 'Touch the end of your arm', body: 'Then hold still for a moment.' });
+  flow.expect = { kind: 'residual-touch' };
   const lead = state.hands[leadHand()];
   const point = v3();
-  let still = 0;
+  // still = the fingertip stays within 1.5 cm for a second; tracking jitter
+  // makes instantaneous speed too noisy to judge stillness on its own
+  const anchor = v3();
+  let stillSince = -1;
   await flow.until(() => {
-    if (!lead.valid) return false;
-    if (lead.indexTipSpeed < 0.03) still += 1 / 72;
-    else still = 0;
-    return still > 1;
+    if (!lead.valid) {
+      stillSince = -1;
+      return false;
+    }
+    const tip = lead.indexTip;
+    if (stillSince < 0 || Math.hypot(tip[0] - anchor[0], tip[1] - anchor[1], tip[2] - anchor[2]) > 0.015) {
+      anchor[0] = tip[0];
+      anchor[1] = tip[1];
+      anchor[2] = tip[2];
+      stillSince = flow.time;
+      return false;
+    }
+    return flow.time - stillSince > 1;
   }, 30);
   // the virtual hand sits where the hand would be: 9 cm beyond the touched point
   const f = state.station.forward;
   point[0] = lead.indexTip[0] + f[0] * 0.09;
   point[1] = state.station.height;
   point[2] = lead.indexTip[2] + f[2] * 0.09;
+  // the mirror lies halfway between the hand's own resting place and that
+  // point, so the hand first goes back to its side and settles there
+  sound.tap(undefined, 0.2);
+  flow.say(null, { icon: 'hand', title: 'Now rest your hand', body: 'On its own side of the mat.' });
+  flow.expect = { kind: 'rest' };
+  let settledSince = -1;
+  await flow.until(() => {
+    // across the mat, not merely back from the touch: right = forward x up
+    const across = (lead.kin.palmCenter[0] - point[0]) * -f[2] + (lead.kin.palmCenter[2] - point[2]) * f[0];
+    const away = lead.valid && Math.abs(across) > 0.22;
+    if (!away || lead.indexTipSpeed > 0.1) {
+      settledSince = -1;
+      return false;
+    }
+    if (settledSince < 0) settledSince = flow.time;
+    return flow.time - settledSince > 0.6;
+  }, 10);
   services.mirror?.calibrateToPoint(point);
   state.mirror.active = true;
   services.mirror!.forceWatch = true;

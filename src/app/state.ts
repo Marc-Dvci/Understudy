@@ -3,6 +3,7 @@
  * Poses are 25 column-major matrices in world space.
  */
 import { Handedness, newPose, Pose } from '../core/joints.js';
+import { GmiStage } from '../core/gmi.js';
 import { HandKinematics, newKinematics } from '../core/kinematics.js';
 import { MirrorPlane, newPlane } from '../core/mirror.js';
 import { defaultProfile, Profile } from '../core/records.js';
@@ -87,6 +88,8 @@ export interface AppState {
   emulated: boolean;
   /** Film recording (?film): boards show what a person's own session shows, without sample labels. */
   film: boolean;
+  /** Film recording (?film&gmi=): the Phantom stage to show, whatever the history. */
+  gmiStage: GmiStage | null;
   /** An eye-gaze ray reported as a WebXR transient pointer while a pinch is held, world space. */
   transient: { active: boolean; origin: Float64Array; dir: Float64Array };
   /** A controller is held instead of a tracked hand (hand tracking is then off on Quest). */
@@ -127,6 +130,7 @@ export const state: AppState = {
   headForward: v3(0, 0, -1),
   emulated: false,
   film: false,
+  gmiStage: null,
   transient: { active: false, origin: v3(), dir: v3(0, 0, -1) },
   controllers: false,
   immersive: false,

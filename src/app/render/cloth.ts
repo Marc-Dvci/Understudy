@@ -42,6 +42,7 @@ export class Cloth {
   private readonly draped: Float32Array;
   private readonly drapedNormals: Float32Array;
   private cpuDeformed = false;
+  private readonly wr: number[] = [];
   private settle = 0;
   private target = 0;
   /** Height of the drape over the hand, metres. */
@@ -54,29 +55,12 @@ export class Cloth {
     this.base = new Float32Array(pos.array as Float32Array);
     this.draped = new Float32Array(pos.array.length);
     const r = rng(9);
-    const wr: number[] = [];
-    for (let i = 0; i < 12; i++) wr.push(r() * 6.28, 20 + r() * 40, (r() - 0.5) * 2);
+    for (let i = 0; i < 12; i++) this.wr.push(r() * 6.28, 20 + r() * 40, (r() - 0.5) * 2);
     for (let i = 0; i < pos.count; i++) {
       const x = this.base[i * 3];
       const z = this.base[i * 3 + 2];
-      // the hand under the cloth: an ellipse, fuller over the palm (z > 0 is the wrist side)
-      const ex = x / HAND_W;
-      const ez = (z - AHEAD + 0.01) / HAND_L;
-      const d = Math.sqrt(ex * ex + ez * ez);
-      const crown = this.bulge * smooth(Math.max(0, 1 - d) * 1.5);
-      // fabric falls away from the hand in radial folds that deepen outward
-      const ang = Math.atan2(z, x);
-      const out = Math.max(0, d - 0.7);
-      let folds = 0;
-      for (let k = 0; k < 3; k++) folds += Math.sin(ang * (5 + k * 2) + wr[k * 3]) * (0.5 - k * 0.12);
-      const skirt = this.bulge * 0.4 * Math.exp(-out * 2.6) * smooth(Math.min(1, d / 0.9));
-      let y = Math.max(crown, skirt * (0.85 + 0.15 * folds));
-      for (let k = 3; k < 6; k++) y += 0.0018 * Math.sin(wr[k * 3] + x * wr[k * 3 + 1] + z * wr[k * 3 + 1] * wr[k * 3 + 2]) * smooth(1 - out);
-      // hem rests on the table
-      const edge = Math.min(WID / 2 - Math.abs(x), LEN / 2 - Math.abs(z));
-      y *= smooth(Math.min(1, edge / 0.035));
       this.draped[i * 3] = x;
-      this.draped[i * 3 + 1] = Math.max(0.003, y);
+      this.draped[i * 3 + 1] = this.drape(x, z);
       this.draped[i * 3 + 2] = z;
     }
     // baked occlusion: folds and the hem sit darker than the crown of the drape
@@ -143,6 +127,39 @@ export class Cloth {
     this.group.add(this.mesh);
     this.group.name = 'cloth';
     this.group.visible = false;
+  }
+
+  /** Height of the settled drape above the table at cloth-local (x, z). */
+  private drape(x: number, z: number): number {
+    const wr = this.wr;
+    // the hand under the cloth: an ellipse, fuller over the palm (z > 0 is the wrist side)
+    const ex = x / HAND_W;
+    const ez = (z - AHEAD + 0.01) / HAND_L;
+    const d = Math.sqrt(ex * ex + ez * ez);
+    const crown = this.bulge * smooth(Math.max(0, 1 - d) * 1.5);
+    // fabric falls away from the hand in radial folds that deepen outward
+    const ang = Math.atan2(z, x);
+    const out = Math.max(0, d - 0.7);
+    let folds = 0;
+    for (let k = 0; k < 3; k++) folds += Math.sin(ang * (5 + k * 2) + wr[k * 3]) * (0.5 - k * 0.12);
+    const skirt = this.bulge * 0.4 * Math.exp(-out * 2.6) * smooth(Math.min(1, d / 0.9));
+    let y = Math.max(crown, skirt * (0.85 + 0.15 * folds));
+    for (let k = 3; k < 6; k++) y += 0.0018 * Math.sin(wr[k * 3] + x * wr[k * 3 + 1] + z * wr[k * 3 + 1] * wr[k * 3 + 2]) * smooth(1 - out);
+    // hem rests on the table
+    const edge = Math.min(WID / 2 - Math.abs(x), LEN / 2 - Math.abs(z));
+    y *= smooth(Math.min(1, edge / 0.035));
+    return Math.max(0.005, y);
+  }
+
+  /** Height of the settled cloth above the table under world (x, z); 0 off the cloth. */
+  heightAt(wx: number, wz: number): number {
+    const dx = wx - this.group.position.x;
+    const dz = wz - this.group.position.z;
+    const a = this.group.rotation.y;
+    const x = dx * Math.cos(a) - dz * Math.sin(a);
+    const z = dx * Math.sin(a) + dz * Math.cos(a);
+    if (Math.abs(x) > WID / 2 || Math.abs(z) > LEN / 2) return 0;
+    return this.drape(x, z);
   }
 
   /** Places the cloth over a hand: centre on the table and the hand's forward direction. */

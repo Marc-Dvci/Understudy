@@ -32,6 +32,8 @@ export class Autopilot {
   readonly actors: Record<Handedness, HandActor>;
   private current: Expect | null = null;
   private busy = false;
+  /** Hands mid-poke, which may press down onto the surface on purpose. */
+  private readonly poking = new Set<Handedness>();
   private readonly r = rng(2026);
   private readonly persona: Persona;
   private readonly refFromWorld = new Float32Array(16);
@@ -184,7 +186,11 @@ export class Autopilot {
     for (const h of ['left', 'right'] as Handedness[]) {
       const a = this.actors[h];
       a.update(dt);
-      this.driver.setHand(h, a.build(), this.refFromWorld);
+      const pose = a.build();
+      // a real hand cannot pass through the table: when a fist curls or an
+      // open hand flattens below it, the whole hand rises instead
+      if (state.station.ready && !this.poking.has(h)) liftAbove(pose, state.station.height + TABLE_CLEARANCE);
+      this.driver.setHand(h, pose, this.refFromWorld);
       this.driver.setConnected(h, h !== this.missingHand);
     }
   }
@@ -376,11 +382,16 @@ export class Autopilot {
     // lift off the table first, as a person does, so the fingertip never
     // brushes a nearer row of stones on its way to a farther one
     const p = a.position;
-    await a.move({ position: v3(p[0], p[1] + 0.07, p[2]) }, 0.25);
-    await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.6);
-    await a.move({ position: wristForTip(a, point, orient, target) }, 0.28, 'out');
-    await a.wait(hold);
-    await a.move({ position: wristForTip(a, point, orient, above) }, 0.25);
+    this.poking.add(h);
+    try {
+      await a.move({ position: v3(p[0], p[1] + 0.07, p[2]) }, 0.25);
+      await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.6);
+      await a.move({ position: wristForTip(a, point, orient, target) }, 0.28, 'out');
+      await a.wait(hold);
+      await a.move({ position: wristForTip(a, point, orient, above) }, 0.25);
+    } finally {
+      this.poking.delete(h);
+    }
     await this.toRest(h, 0.7);
   }
 
@@ -460,6 +471,18 @@ export class Autopilot {
 }
 
 /** Seated film viewpoints: head and look-at as (forward, right, up) metres from the mat centre. */
+/** Joint centres stay this far above the table: about a finger's half-thickness. */
+const TABLE_CLEARANCE = 0.0075;
+
+/** Raises a whole world-space pose so that no joint centre sits below `floor`. */
+function liftAbove(pose: Float32Array | Float64Array, floor: number): void {
+  let min = Infinity;
+  for (let i = 13; i < pose.length; i += 16) min = Math.min(min, pose[i]);
+  if (!(min < floor)) return;
+  const dy = floor - min;
+  for (let i = 13; i < pose.length; i += 16) pose[i] += dy;
+}
+
 export type CamPreset = 'seat' | 'close' | 'leanL' | 'leanR' | 'board' | 'low' | 'cloth' | 'across';
 const CAM: Record<Exclude<CamPreset, 'cloth'>, { pos: [number, number, number]; look: [number, number, number] }> = {
   seat: { pos: [-0.5, 0.06, 0.42], look: [0.0, 0.0, 0.0] },

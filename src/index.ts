@@ -49,6 +49,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   flowSystem.demoRoom = !params.has('sem') && !params.has('noroom');
   if (params.get('input') === 'gaze') stage.press.gazeEnabled = true;
   state.film = params.has('film');
+  const gmi = params.get('gmi');
+  if (state.film && (gmi === 'recognise' || gmi === 'imagine' || gmi === 'mirror')) state.gmiStage = gmi;
   if (params.has('nolabel') && services.station) services.station.ignoreLabels = true;
 
   world.createTransformEntity(stage.root);
