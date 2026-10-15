@@ -185,7 +185,7 @@ export class Cloth {
   update(dt: number): void {
     const prev = this.settle;
     if (this.target > this.settle) this.settle = Math.min(1, this.settle + dt / 0.9);
-    else this.settle = Math.max(0, this.settle - dt / 0.4);
+    else if (this.target < this.settle) this.settle = Math.max(0, this.settle - dt / 0.4);
     this.group.visible = this.settle > 0.01;
     if (prev === this.settle) return;
     const t = this.settle;
