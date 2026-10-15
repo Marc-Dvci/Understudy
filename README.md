@@ -6,7 +6,7 @@ A daily mirror exercise for someone practising with one weaker hand, with assist
 
 ## Try it
 
-Open the hosted build linked in the competition submission. On desktop Chrome or Edge, choose **Explore handover**. The short showcase starts with prepared sample measurements and offers **Handover**, **Progress** and **Hand Print** chapters. Compare Watch, Rehearse and Perform, pause to inspect a state, or open the complete later-session path with **Full app**.
+Open the hosted build at https://marc-dvci.github.io/Understudy/. On desktop Chrome or Edge, choose **Explore handover**. The short showcase starts with prepared sample measurements and offers **Handover**, **Progress** and **Hand Print** chapters. Compare Watch, Rehearse and Perform, pause to inspect a state, or open the complete later-session path with **Full app**.
 
 Choose **Watch the first session**, then **Watch the demo**, for the complete onboarding and routine. Choose **Watch a later session** for a complete visit with three weeks of simulated history. These paths run the actual app in [Meta IWER, a browser-based immersive-session emulator](https://github.com/meta-quest/immersive-web-emulator).
 
