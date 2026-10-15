@@ -15,6 +15,7 @@ import { Card } from './ui/card.js';
 import { CanvasPanel } from './ui/panel.js';
 import { PressInput } from './ui/press.js';
 import { Stone, StoneOptions } from './ui/stone.js';
+import type { PetalBursts } from './render/burst.js';
 
 /**
  * How the tracked hands are drawn. On a headset the user sees their own
@@ -52,6 +53,8 @@ export class Stage {
   cardSlot: 'back' | 'high' = 'back';
   /** Extra lift of the mirrored hand, e.g. to rest on top of the cloth. */
   mirrorLift = 0;
+  /** Playful style's petal bursts, created on first use. */
+  bursts: PetalBursts | null = null;
   private readonly tmp = new Vector3();
 
   constructor() {
@@ -186,6 +189,7 @@ export class Stage {
     this.card.suppressed = this.board.target > 0;
     this.board.update(dt);
     this.meter.update(dt);
+    this.bursts?.update(dt);
     this.press.update(dt);
     this.updateHands();
 

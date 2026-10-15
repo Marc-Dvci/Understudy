@@ -85,6 +85,8 @@ export interface AppState {
   headForward: Float64Array;
   /** Running in the IWER emulator with synthetic hands. */
   emulated: boolean;
+  /** An eye-gaze ray reported as a WebXR transient pointer while a pinch is held, world space. */
+  transient: { active: boolean; origin: Float64Array; dir: Float64Array };
   /** A controller is held instead of a tracked hand (hand tracking is then off on Quest). */
   controllers: boolean;
   immersive: boolean;
@@ -122,6 +124,7 @@ export const state: AppState = {
   head: v3(0, 1.2, 0),
   headForward: v3(0, 0, -1),
   emulated: false,
+  transient: { active: false, origin: v3(), dir: v3(0, 0, -1) },
   controllers: false,
   immersive: false,
   time: 0,

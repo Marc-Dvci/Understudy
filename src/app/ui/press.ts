@@ -7,6 +7,9 @@
  *    index finger (a joint-based microgesture that works with small movement);
  *  - head gaze: looking at a stone for the dwell time, for users with neither
  *    hand usable.
+ * Two optional extras: where the browser reports eye gaze as a transient
+ * pointer (look, then pinch), the stone looked at when the pinch began is
+ * pressed when it ends; and spoken labels press stones (voice commands).
  * No pinch is ever required.
  */
 import { Vector3 } from '@iwsdk/core';
@@ -16,7 +19,30 @@ import { state } from '../state.js';
 import { Stone } from './stone.js';
 
 type PressListener = (id: string, how: PressMethod) => void;
-export type PressMethod = 'poke' | 'dwell' | 'thumb' | 'gaze' | 'pointer';
+export type PressMethod = 'poke' | 'dwell' | 'thumb' | 'gaze' | 'pointer' | 'eye' | 'voice';
+
+/**
+ * The stone a ray points at most directly, within `maxAngle` radians, or null.
+ * Positions and the ray are in world space; `dir` need not be normalised.
+ */
+export function rayPick(stones: { id: string; x: number; y: number; z: number }[], origin: ArrayLike<number>, dir: ArrayLike<number>, maxAngle = 0.12): string | null {
+  const dl = Math.hypot(dir[0], dir[1], dir[2]);
+  if (!(dl > 0)) return null;
+  let best: string | null = null;
+  let bestAngle = maxAngle;
+  for (const s of stones) {
+    const vx = s.x - origin[0], vy = s.y - origin[1], vz = s.z - origin[2];
+    const vl = Math.hypot(vx, vy, vz);
+    if (!(vl > 0)) continue;
+    const c = (vx * dir[0] + vy * dir[1] + vz * dir[2]) / (vl * dl);
+    const a = Math.acos(Math.max(-1, Math.min(1, c)));
+    if (a < bestAngle) {
+      bestAngle = a;
+      best = s.id;
+    }
+  }
+  return best;
+}
 
 const TIP_RADIUS = 0.009;
 const REARM = 0.022;
@@ -181,6 +207,27 @@ export class PressInput {
     }
     for (const s of active) if (s.hover === 0) s.dwell = Math.max(0, s.dwell - dt * 2);
 
+    // eye gaze with a pinch (WebXR transient pointer): the stone looked at
+    // when the pinch starts is pressed when it ends
+    const eye = state.transient;
+    if (eye.active && !this.eyeWasActive) this.eyeLocked = this.eyeTarget(active, eye.origin, eye.dir);
+    if (this.eyeLocked) {
+      const s = this.stones.get(this.eyeLocked);
+      if (s && active.includes(s)) {
+        s.hover = Math.max(s.hover, 0.8);
+        focus = focus ?? s.id;
+      }
+    }
+    if (!eye.active && this.eyeWasActive && this.eyeLocked) {
+      const id = this.eyeLocked;
+      this.eyeLocked = null;
+      this.eyeWasActive = false;
+      this.press(id, 'eye');
+      return;
+    }
+    this.eyeWasActive = eye.active;
+    if (!eye.active) this.eyeLocked = null;
+
     // head gaze
     const noHands = Math.min(state.hands.left.lostFor, state.hands.right.lostFor) > this.gazeAutoAfter;
     if (this.gazeEnabled || noHands) {
@@ -202,6 +249,16 @@ export class PressInput {
       }
     } else this.gazeTime.clear();
     this.focused = focus;
+  }
+
+  private eyeWasActive = false;
+  private eyeLocked: string | null = null;
+
+  private eyeTarget(active: Stone[], origin: ArrayLike<number>, dir: ArrayLike<number>): string | null {
+    return rayPick(active.map((s) => {
+      s.group.getWorldPosition(this.world);
+      return { id: s.id, x: this.world.x, y: this.world.y, z: this.world.z };
+    }), origin, dir);
   }
 
   private readonly gazeDir = new Vector3();

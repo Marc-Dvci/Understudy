@@ -1,5 +1,5 @@
 {
-  "unitTests": 55,
+  "unitTests": 178,
   "failed": 0,
   "runner": "Vitest",
   "scope": "Automated software checks; no physical-device or participant test"

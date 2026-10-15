@@ -19,12 +19,13 @@ import {
   UsualRange,
 } from './stats.js';
 
-export type ProgramId = 'understudy' | 'phantom' | 'warmup';
+export type ProgramId = 'understudy' | 'phantom' | 'warmup' | 'deskbreak';
 
 export const PROGRAM_LABEL: Record<ProgramId, string> = {
   understudy: 'Understudy',
   phantom: 'Phantom',
   warmup: 'Morning Warm-up',
+  deskbreak: 'Desk Break',
 };
 
 export const APP_VERSION = '1.0.0';
@@ -42,6 +43,10 @@ export interface Profile {
   voice: boolean;
   captions: boolean;
   textScale: number;
+  /** Calm by default; Playful adds petal bursts and lighter wording, never scores. */
+  style: 'calm' | 'playful';
+  /** Spoken pause, resume, stop and stone labels, where the browser supports speech recognition. */
+  voiceCommands: boolean;
 }
 
 export function defaultProfile(): Profile {
@@ -56,6 +61,8 @@ export function defaultProfile(): Profile {
     voice: true,
     captions: true,
     textScale: 1,
+    style: 'calm',
+    voiceCommands: false,
   };
 }
 
@@ -84,7 +91,8 @@ export interface SessionRecord {
   drift?: DriftResult;
   laterality?: LateralityScore;
   warmup?: { ranges: number[]; fit: WarmupFit | null };
-  exercises: { id: string; seconds: number; reps: number }[];
+  /** `peaks` holds each tracked hand's own largest movement in the exercise (degrees), where it has one. */
+  exercises: { id: string; seconds: number; reps: number; peaks?: Partial<Record<Handedness, number>> }[];
   completed: boolean;
   /** Each hand's pose at its fullest fist in the Hand Print (25 matrices), for the ghost hand. */
   poses?: Partial<Record<Handedness, { fist: number[] }>>;
@@ -151,28 +159,55 @@ export const SHARE_FLOOR = 20;
  * holds today is a pure function of the records.
  */
 export function sharesFromHistory(records: SessionRecord[], understudy: Handedness): number[] {
+  return shareStatesFromHistory(records, understudy).map((s) => s.share);
+}
+
+/** One finger's hand-over state after replaying the history. */
+export interface FingerShareState {
+  share: number;
+  /** The range the share was last set from; a change needs more than `mdc` away from it. */
+  anchorRange: number;
+  /** Median of the last three measured ranges, the value each decision uses. */
+  current: number;
+  /** The Lead hand's latest range for this finger. */
+  leadRange: number;
+  mdc: number;
+  /** Measured sessions for this finger. */
+  sessions: number;
+}
+
+export const SHARE_FINGERS: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
+
+/** The full replayed state behind `sharesFromHistory`, for explanations and next-visit hints. */
+export function shareStatesFromHistory(records: SessionRecord[], understudy: Handedness): FingerShareState[] {
   records = records.filter((r) => r.program === 'understudy' && r.understudy === understudy);
   const lead: Handedness = understudy === 'left' ? 'right' : 'left';
-  const fingers: MetricId[] = ['tam.index', 'tam.middle', 'tam.ring', 'tam.little'];
-  const shares = [0, 0, 0, 0];
-  fingers.forEach((id, f) => {
+  return SHARE_FINGERS.map((id) => {
     const own = seriesFor(records, metricKey(understudy, id));
     const ref = seriesFor(records, metricKey(lead, id));
     const trials = trialsFor(records, metricKey(understudy, id));
     const state = { anchorRange: NaN, share: 0 };
     const history: number[] = [];
     let leadRef = NaN;
+    let mdc = NaN;
     for (let i = 0; i < own.length; i++) {
       if (Number.isFinite(ref[i])) leadRef = ref[i];
       if (!Number.isFinite(own[i])) continue;
       history.push(own[i]);
       // Each decision uses only measurements that existed on that day.
       const err = estimateError(trials.slice(0, i + 1), own.slice(0, i + 1), METRICS[id].priorSem);
+      mdc = err.mdc;
       updateShare(state, median(history.slice(-3)), leadRef, SHARE_FLOOR, err.mdc);
     }
-    shares[f] = state.share;
+    return {
+      share: state.share,
+      anchorRange: state.anchorRange,
+      current: history.length ? median(history.slice(-3)) : NaN,
+      leadRange: leadRef,
+      mdc,
+      sessions: history.length,
+    };
   });
-  return shares;
 }
 
 /** Thumb share follows the mean of the fingers: the thumb has no TAM metric. */

@@ -39,6 +39,8 @@ export class Autopilot {
   head = v3(0.06, 1.16, -0.16);
   headPitch = -38;
   private tapPhase = 0;
+  /** Set while a hand is turned or lifted by a looping exercise; the next step first returns it to rest. */
+  private posed = false;
   /** Current warm-up repetition, -1 outside the warm-up. */
   private warmRep = -1;
   enabled = true;
@@ -176,6 +178,10 @@ export class Autopilot {
   private async act(e: Expect): Promise<void> {
     this.busy = true;
     try {
+      if (this.posed) {
+        this.posed = false;
+        await Promise.all((['left', 'right'] as Handedness[]).map((h) => this.toRest(h, 0.5)));
+      }
       switch (e.kind) {
         case 'rest':
           await Promise.all((['left', 'right'] as Handedness[]).map((h) => this.toRest(h, 0.9)));
@@ -233,6 +239,27 @@ export class Autopilot {
           await this.actors[h].move({ angles: thumbToFinger(h, e.finger, this.actors[h].length) }, 0.55);
           await this.actors[h].wait(0.25);
           await this.actors[h].move({ angles: this.restFor(h) }, 0.4);
+          break;
+        }
+        case 'pinch-place': {
+          const h = e.hand;
+          const a = this.actors[h];
+          const orient = pokeOrientation(state.station.forward, 30);
+          const pinch = thumbToFinger(h, 0, a.length);
+          const ready = lerpAngles(openAngles(), pinch, 0.35);
+          const at = (p: number[], dy: number) => v3(p[0], p[1] + dy, p[2]);
+          a.sway = 0;
+          await flow.wait(0.3 + this.r() * 0.3);
+          await a.move({ angles: ready, orientation: orient, position: wristForTip(a, pinch, orient, at(e.from, 0.06)) }, 0.7);
+          await a.move({ position: wristForTip(a, pinch, orient, at(e.from, 0.002)) }, 0.35, 'out');
+          await a.move({ angles: pinch }, 0.3);
+          await a.wait(0.15);
+          await a.move({ position: wristForTip(a, pinch, orient, at(e.from, 0.07)) }, 0.35);
+          await a.move({ position: wristForTip(a, pinch, orient, at(e.to, 0.04)) }, 0.6);
+          await a.move({ angles: ready }, 0.3);
+          await a.wait(0.2);
+          a.sway = 0.0012;
+          await this.toRest(h, 0.6);
           break;
         }
         case 'residual-touch': {
@@ -307,7 +334,11 @@ export class Autopilot {
     const orient = pokeOrientation(f, 38);
     const point = pointAngles();
     const above = v3(target[0], target[1] + 0.06, target[2]);
-    await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.7);
+    // lift off the table first, as a person does, so the fingertip never
+    // brushes a nearer row of stones on its way to a farther one
+    const p = a.position;
+    await a.move({ position: v3(p[0], p[1] + 0.07, p[2]) }, 0.25);
+    await a.move({ angles: point, orientation: orient, position: wristForTip(a, point, orient, above) }, 0.6);
     await a.move({ position: wristForTip(a, point, orient, target) }, 0.28, 'out');
     await a.wait(hold);
     await a.move({ position: wristForTip(a, point, orient, above) }, 0.25);
@@ -358,10 +389,41 @@ export class Autopilot {
         const amp = h === this.persona.weakSide ? Math.max(0.35, 0.8 - this.tapPhase * 0.03) : 1;
         this.actors[h].setImmediate(lerpAngles(pinch, open, k * amp));
       }
+    } else if (e.kind === 'dial' || e.kind === 'wave' || e.kind === 'spread') {
+      this.tapPhase += dt;
+      this.posed = true;
+      const f = state.station.ready ? state.station.forward : this.facing;
+      for (const h of e.hands) {
+        const hand = this.actors[h];
+        // the weak hand tries along with a smaller movement
+        const amp = h === this.persona.weakSide ? this.persona.weakRange[0] : 1;
+        const roll0 = h === 'left' ? -4 : 4;
+        if (e.kind === 'spread') {
+          const k = 0.5 - 0.5 * Math.cos((this.tapPhase * 2 * Math.PI) / 2.2);
+          hand.setImmediate(lerpAngles(this.restFor(h), this.reach(h, spreadAngles()), k));
+        } else if (e.kind === 'dial') {
+          const k = 0.5 - 0.5 * Math.cos((this.tapPhase * 2 * Math.PI) / 3);
+          const p = this.restPosition(h);
+          p[1] += 0.045;
+          hand.setImmediate(this.restFor(h), p, palmDownOrientation(f, roll0 + (h === 'left' ? 1 : -1) * 150 * k * amp));
+        } else {
+          const k = 0.5 - 0.5 * Math.cos((this.tapPhase * 2 * Math.PI) / 2.4);
+          const p = this.restPosition(h);
+          p[1] += 0.02;
+          const lift = quatAxisAngle(q4(), v3(1, 0, 0), 48 * k * amp * RAD);
+          hand.setImmediate(openAngles(), p, quatMul(q4(), palmDownOrientation(f, roll0), lift));
+        }
+      }
     } else {
       this.tapPhase = 0;
     }
   }
+}
+
+function spreadAngles(): HandAngles {
+  const a = openAngles();
+  a.fingers.forEach((f, i) => (f.mcpAbd = [18, 4, -10, -26][i]));
+  return a;
 }
 
 function invertRigid(out: Float32Array, m: ArrayLike<number>): void {

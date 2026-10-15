@@ -15,7 +15,9 @@ import { PALETTE } from '../render/materials.js';
 import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
 import { store } from '../store.js';
-import { drawMessage, drawMeter } from '../ui/viz.js';
+import { drawMessage, drawMeter, drawTomorrow } from '../ui/viz.js';
+import { EXERCISE_LABEL, ExerciseId, explainAssistance, planRoutine, programmeHints, visitDays } from '../../core/coach.js';
+import { bothSides, dialExercise, mirrorSides, Side, spreadExercise, stonesExercise, waveExercise } from './exercises-more.js';
 import { captureRepPeak, warmupFrom } from './capture.js';
 import { flow } from './engine.js';
 import { flowerExercise, pianoExercise, tapExercise, thumbExercise } from './exercises.js';
@@ -33,6 +35,7 @@ export interface CarriedPrint {
 export async function runProgram(p: ProgramId, carried?: CarriedPrint): Promise<void> {
   if (p === 'understudy') return understudySession(carried);
   if (p === 'phantom') return phantomSession();
+  if (p === 'deskbreak') return deskBreakSession();
   return warmupSession();
 }
 
@@ -46,11 +49,62 @@ async function finish(record: SessionRecord, lines: string[]): Promise<void> {
   flow.say('session-done', { icon: 'check', title: 'Well done', body: store.persistent ? 'Today is saved on this headset.' : store.sandbox ? 'Sample session complete.' : 'Session complete. Storage unavailable; export before leaving.', accent: PALETTE.good });
   await flow.wait(2.5);
   await showProgress();
-  stage.board.draw(drawMessage('See you tomorrow', lines, PALETTE.good));
+  stage.board.draw(drawMessage('Today', lines, PALETTE.good));
   stage.board.show();
-  flow.say('come-back', { icon: 'sun', title: 'Come back tomorrow', body: 'Your table will be here.', accent: PALETTE.good });
   await flow.wait(4);
+  // what the next visit can change, from the same margins, and the visited days
+  flow.step = 'next-visit';
+  const all = await store.sessions();
+  stage.board.draw(drawTomorrow('Next visit', programmeHints(all, record.program, record.understudy), visitDays(all.filter((r) => r.program === record.program), Date.now())));
+  flow.say('come-back', { icon: 'sun', title: 'Come back tomorrow', body: 'Your table will be here.', accent: PALETTE.good });
+  await flow.wait(6);
   stage.board.hide();
+}
+
+/** Shows a short list of sentences on the board for `seconds`. */
+async function notes(title: string, lines: string[], seconds: number, accent = PALETTE.understudy): Promise<void> {
+  stage.board.draw(drawTomorrow(title, lines, [], accent));
+  stage.board.show();
+  await flow.wait(seconds);
+  stage.board.hide();
+}
+
+/** Runs planned exercises and records each one's repetitions and measurements. */
+async function runRoutine(ids: ExerciseId[], sides: Side[], record: SessionRecord): Promise<void> {
+  const put = (h: Handedness, id: MetricId, value: number, validShare: number) => {
+    record.metrics[metricKey(h, id)] = { value, trials: [value], validShare };
+  };
+  const finite = (p: Record<Handedness, number>) => {
+    const out: Partial<Record<Handedness, number>> = {};
+    for (const h of ['left', 'right'] as Handedness[]) if (Number.isFinite(p[h])) out[h] = Math.round(p[h] * 10) / 10;
+    return out;
+  };
+  for (const id of ids) {
+    if (id === 'flower') {
+      const flower = await flowerExercise(6);
+      record.exercises.push({ id, seconds: 0, reps: flower.reps });
+    } else if (id === 'piano') {
+      const piano = await pianoExercise(8);
+      record.exercises.push({ id, seconds: 0, reps: piano.played });
+      for (const h of ['left', 'right'] as Handedness[]) put(h, 'individuation', piano.individuation[h], piano.validShare[h]);
+    } else if (id === 'thumb') {
+      const thumb = await thumbExercise(1);
+      record.exercises.push({ id, seconds: 0, reps: thumb.touches });
+    } else if (id === 'tap') {
+      const taps = await tapExercise(10);
+      record.exercises.push({ id, seconds: 10, reps: taps[leadHand()].taps });
+      for (const h of ['left', 'right'] as Handedness[]) {
+        put(h, 'tap.rate', taps[h].rate, taps[h].validShare);
+        put(h, 'tap.amplitude', taps[h].amplitude, taps[h].validShare);
+        put(h, 'tap.decrement', taps[h].decrement, taps[h].validShare);
+      }
+    } else {
+      const run = id === 'stones' ? stonesExercise(sides, sides.some((s) => s.mirrored) ? 3 : 2)
+        : id === 'dial' ? dialExercise(sides) : id === 'spread' ? spreadExercise(sides) : waveExercise(sides);
+      const r = await run;
+      record.exercises.push({ id, seconds: 0, reps: r.reps, peaks: finite(r.peaks) });
+    }
+  }
 }
 
 // ---------------------------------------------------------------- Understudy
@@ -79,6 +133,15 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
   });
   record.shares = shares;
   record.stage = stageOf(state.mirror.controls);
+
+  // the coach: today's routine from the measurements, and why each finger has its setting
+  const plan = planRoutine(history, understudyHand());
+  flow.step = 'coach-plan';
+  flow.say('coach-plan', { icon: 'next', title: "Today's plan", body: plan.exercises.map((id) => EXERCISE_LABEL[id]).join(', ') });
+  await notes("Today's plan", [plan.exercises.map((id) => EXERCISE_LABEL[id]).join(' · '), ...plan.reasons], 5.5);
+  flow.step = 'coach-why';
+  flow.say('coach-why', { icon: 'mirror', title: 'Why these settings', body: 'Each finger moves on its own measurement.' });
+  await notes('Why these settings', explainAssistance(history, record, understudyHand()), 7);
 
   if (!(await startMirror())) {
     flow.say(null, { icon: 'hand', title: 'Bring your Lead hand into view', body: 'Return home and try again when tracking is ready.' });
@@ -109,25 +172,7 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
 
   flow.say('attempt-try', { icon: 'mirror', title: 'Try with both hands', body: 'Even a little movement counts.' });
   await flow.wait(3);
-  const flower = await flowerExercise(6);
-  const piano = await pianoExercise(8);
-  const thumb = await thumbExercise(1);
-  const taps = await tapExercise(10);
-  record.exercises.push(
-    { id: 'flower', seconds: 0, reps: flower.reps },
-    { id: 'piano', seconds: 0, reps: piano.played },
-    { id: 'thumb', seconds: 0, reps: thumb.touches },
-    { id: 'tap', seconds: 10, reps: taps[leadHand()].taps },
-  );
-  for (const h of ['left', 'right'] as Handedness[]) {
-    const put = (id: MetricId, value: number, validShare: number) => {
-      record.metrics[metricKey(h, id)] = { value, trials: [value], validShare };
-    };
-    put('individuation', piano.individuation[h], piano.validShare[h]);
-    put('tap.rate', taps[h].rate, taps[h].validShare);
-    put('tap.amplitude', taps[h].amplitude, taps[h].validShare);
-    put('tap.decrement', taps[h].decrement, taps[h].validShare);
-  }
+  await runRoutine(plan.exercises, mirrorSides(), record);
   stopMirror();
   mirror.forceWatch = true;
   mirror.attemptPhase = 'off';
@@ -396,6 +441,37 @@ async function warmupSession(): Promise<void> {
   await finish(record, [
     `Morning stiffness: left ${Number.isFinite(sl) ? Math.round(sl!) : '--'}%, right ${Number.isFinite(sr) ? Math.round(sr!) : '--'}% of range missing at the first fist.`,
     `Hands reach 90% of their warm range after ${fits.right ? fits.right.repsTo90.toFixed(1) : '--'} fists.`,
+  ]);
+}
+
+// --------------------------------------------------------------- Desk break
+
+/**
+ * Two minutes for two working hands that type, click or play all day:
+ * measure, four movements against the table, then the same margins as every
+ * programme decide what counts as a change.
+ */
+async function deskBreakSession(): Promise<void> {
+  flow.step = 'deskbreak';
+  state.profile.understudy = null;
+  const record = newRecord('deskbreak');
+  record.understudy = null;
+  flow.currentRecord = record;
+  const history = historyFor(await store.sessions(), 'deskbreak', null);
+  await flow.tell('desk-intro', { icon: 'hand', title: 'Desk break', body: 'Two minutes for hands that work all day.' }, 6);
+  const pr = await handPrint(['left', 'right'], 2);
+  recordPrint(record, pr);
+  await showHandPrint(pr, history);
+  stage.board.hide();
+  const plan: ExerciseId[] = ['spread', 'wave', 'dial', 'stones'];
+  await notes('Your break', [plan.map((id) => EXERCISE_LABEL[id]).join(' · '), 'Move within comfort. Nothing here is timed.'], 4, PALETTE.lead);
+  await runRoutine(plan, bothSides(), record);
+  const total = (h: Handedness) => record.metrics[metricKey(h, 'tam.total')]?.value;
+  const fmt = (v: number | undefined) => (Number.isFinite(v) ? `${Math.round(v!)}°` : '--');
+  const turn = record.exercises.find((e) => e.id === 'dial')?.peaks;
+  await finish(record, [
+    `Whole-hand range: left ${fmt(total('left'))}, right ${fmt(total('right'))}.`,
+    `Forearm turn: left ${fmt(turn?.left)}, right ${fmt(turn?.right)}.`,
   ]);
 }
 

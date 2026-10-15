@@ -24,6 +24,7 @@ import { stage } from '../stage.js';
 import { leadHand, state, understudyHand } from '../state.js';
 import { captureTapping } from './capture.js';
 import { flow } from './engine.js';
+import { celebrate } from './playful.js';
 import { disposeTransient } from './transient.js';
 
 const mirrorKin = newKinematics('left');
@@ -113,6 +114,7 @@ export async function flowerExercise(reps = 6): Promise<{ reps: number; peakOpen
       wasOpen = true;
       count++;
       sound.chime(undefined, true);
+      celebrate(flowers.lead.group.position);
       flow.say(null, { icon: 'open', title: 'Open the flower', step: { index: Math.min(count, reps) - 1, total: reps } });
     } else if (lo < 0.25) wasOpen = false;
     return count >= reps || flow.time - start > 40;

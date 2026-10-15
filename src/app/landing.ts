@@ -41,7 +41,9 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
           ? 'Explore the actual app in Meta’s WebXR emulator. Jump between handover, Progress and Hand Print, and compare the three render modes at your own pace.'
           : sample
             ? 'Watch a complete later visit with three weeks of sample history in Meta’s WebXR emulator.'
-            : 'Watch first-time setup and a complete session in Meta’s WebXR emulator.') +
+            : query.get('program') === 'deskbreak'
+              ? 'Watch a two-minute desk break for two working hands in Meta’s WebXR emulator.'
+              : 'Watch first-time setup and a complete session in Meta’s WebXR emulator.') +
         ' Hands and history are simulated; samples stay separate from personal records. For your own session, use <strong>Meta Quest Browser</strong>.';
     } else if (ar) {
       start.disabled = false;

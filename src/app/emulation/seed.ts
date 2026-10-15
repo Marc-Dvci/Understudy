@@ -68,7 +68,7 @@ export function seedHistory(sessions: number, understudy: Handedness = 'left'): 
       appVersion: APP_VERSION,
       calibrationHash: 'simulated',
       metrics,
-      exercises: [],
+      exercises: [{ id: 'flower', seconds: 0, reps: 6 }, { id: 'piano', seconds: 0, reps: 8 }, { id: 'thumb', seconds: 0, reps: 4 }, { id: 'tap', seconds: 10, reps: 16 }],
       completed: true,
       poses: { [understudy]: { fist: Array.from(fist, (x) => Math.round(x * 1e4) / 1e4) } },
       simulated: true,

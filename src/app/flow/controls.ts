@@ -7,7 +7,7 @@ import { flow } from './engine.js';
 
 const IDS = ['session-pause', 'session-stop'];
 const PAUSED_IDS = new Set(IDS);
-const INACTIVE = new Set(['boot', 'find-table', 'home', 'settings', 'stopping']);
+const INACTIVE = new Set(['boot', 'find-table', 'home', 'settings', 'stopping', 'visit', 'visit-code', 'visit-wait']);
 
 /** Session controls use the same poke, dwell and gaze input as every other stone. */
 export class SessionControls {

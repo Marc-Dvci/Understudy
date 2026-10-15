@@ -358,3 +358,60 @@ export function drawMeter(shares: number[], stageLabel: string, attempt: number[
     ctx.textAlign = 'left';
   };
 }
+
+/**
+ * The end of a session: what the next visit can change, and the last 14 days
+ * as dots, filled where a session was completed. A missed day is only a gap;
+ * nothing is counted as a streak.
+ */
+export function drawTomorrow(title: string, lines: string[], days: boolean[], accent = PALETTE.good) {
+  return (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    backdrop(ctx, w, h);
+    ctx.fillStyle = accent;
+    roundRect(ctx, 14, 12, 20, h - 34, 10);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.ink;
+    ctx.font = `700 ${Math.round(h * 0.12)}px ${FONT}`;
+    ctx.fillText(title, 80, h * 0.2);
+    ctx.font = `400 ${Math.round(h * 0.08)}px ${FONT}`;
+    ctx.fillStyle = '#334155';
+    let y = h * 0.35;
+    const bottom = days.length ? h * 0.7 : h * 0.92;
+    for (const l of lines) {
+      for (const part of wrapText(ctx, l, w - 160)) {
+        if (y > bottom) break;
+        ctx.fillText(part, 80, y);
+        y += h * 0.095;
+      }
+    }
+    // the last 14 days, oldest on the left, today ringed
+    const n = days.length;
+    if (!n) return;
+    const r = Math.min(h * 0.03, (w - 200) / (n * 3));
+    const gap = (w - 200) / Math.max(1, n - 1);
+    const cy = h * 0.8;
+    ctx.font = `400 ${Math.round(h * 0.05)}px ${FONT}`;
+    ctx.fillStyle = '#64748b';
+    ctx.fillText(`Last ${n} days`, 80, cy - r * 2.2);
+    for (let i = 0; i < n; i++) {
+      const cx = 100 + i * gap;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      if (days[i]) {
+        ctx.fillStyle = accent;
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = r * 0.3;
+        ctx.stroke();
+      }
+      if (i === n - 1) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.55, 0, Math.PI * 2);
+        ctx.strokeStyle = PALETTE.ink;
+        ctx.lineWidth = r * 0.22;
+        ctx.stroke();
+      }
+    }
+  };
+}

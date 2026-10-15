@@ -22,15 +22,23 @@ Exercise prototype. Measurements are estimates. No participants or physical head
 
 **Measure → set assistance per finger → exercise → compare next time.**
 
-Rest a working hand to establish a table from scene surfaces, resting fingertips, or a lap fallback. Choose the hand and programme. Understudy takes three trials of opening, fist and thumb reach, places a reflected hand over a felt cloth, then runs flower, piano, thumb and rhythm exercises.
+Rest a working hand to establish a table from scene surfaces, resting fingertips, or a lap fallback. Choose the hand and programme. Understudy takes three trials of opening, fist and thumb reach, places a reflected hand over a felt cloth, then runs the day's exercises.
+
+A deterministic coach plans each routine from the saved measurements. The first three visits use the four measured exercises (flower, piano, thumb, rhythm) to build a baseline. After that, the coach chooses the movement that lags the Lead hand most, then rotates in what was practised least recently: stones to the bowl (pinch, carry, release), turn the dial (forearm rotation), spread and close, and wave (wrist lift). Before the exercises, the board shows today's plan and one sentence per finger explaining its setting, for example "Index: 20% to 60%. Rose 40°, more than its 21° margin." A session that was stopped early makes the next one shorter. The mirrored hand performs every exercise too: in stones to the bowl, it reaches its own reflected stones.
 
 The working hand is the **Lead**. The weaker hand is the **Understudy**. Watch follows the Lead's reflection; Rehearse blends it with tracked own movement; Perform follows own movement. The share is the rendered blend, not a measured percentage of effort.
 
-Progress labels changes above or below an estimated error margin and places an earlier closed-hand pose beside the latest one. The recurring purpose is a short routine at the same table, with an inspectable record of what changed.
+Progress labels changes above or below an estimated error margin and places an earlier closed-hand pose beside the latest one. Each session ends with **Next visit**: the range at which each finger's assistance takes its next step, beside today's value, and the last 14 days as dots. Missed days are gaps; nothing counts streaks. The recurring purpose is a short routine at the same table, with an inspectable record of what changed.
 
-Phantom offers recognition, imagery and mirror stages with a missing hand; Morning Warm-up fits a repeated-fist movement curve. Both-hand setup starts Warm-up.
+Phantom offers recognition, imagery and mirror stages with a missing hand; Morning Warm-up fits a repeated-fist movement curve. **Desk Break** is two minutes for two working hands that type, click or play all day: a short Hand Print, then spread, wave, dial and stones with both hands, judged by the same margins. Both-hand setup offers Warm-up and Desk Break.
 
-Every button supports one-hand poke, hover dwell, thumb confirmation and head-direction gaze. Head gaze means headset direction. Stop saves an unfinished record and returns Home. Settings includes skin tone, attended side, dwell, voice, diagnostics, CSV export and confirmed erasure.
+Every button supports one-hand poke, hover dwell, thumb confirmation and head-direction gaze. Head gaze means headset direction. Where a browser reports eye gaze as a WebXR transient pointer (look, then pinch), the stone looked at when the pinch starts is pressed when it ends. **Spoken** commands, off by default, press any visible stone by its label and also take "pause", "resume" and "stop"; negated phrases such as "don't stop" do nothing. Stop saves an unfinished record and returns Home. Settings includes skin tone, attended side, dwell, voice, spoken commands, a Calm or Playful style (petal bursts on each repetition, never scores), diagnostics, CSV export, a one-page care-team summary and confirmed erasure.
+
+## Beyond the daily routine
+
+- **Later visit** (Home): visit 22 inside the headset, over 21 simulated earlier visits in a temporary store, so the per-finger handover can be seen on day one. Personal history is reopened unchanged afterwards, and a stopped sample session is never saved.
+- **Visit** (Home): two people at their own tables see each other's hands across the mat and open the flower together. One chooses Invite and reads out a four-digit code; the other chooses Join and enters it on a stone keypad. Only hand joints travel, 175 16-bit values per hand, about 36 times a second. Nothing is recorded. A relative, friend or therapist can keep someone company in a session.
+- **Summary** (Settings): a standalone one-page HTML summary for a care team. It shows each measure's first and latest values, the change, its margin and verdict, a trend line with the usual range, and today's per-finger assistance. Simulated sessions are flagged. Open it in any browser and print it or share the file.
 
 ## How it works
 
@@ -56,8 +64,13 @@ History is separated by programme and hand role. Stopped sessions are excluded f
 | One-hand selection supports poke, dwell, thumb and head gaze | [Input](src/app/ui/press.ts) | [Input regressions](tests/press.test.ts), [retained emulator journeys](verification/emulator.json) |
 | Samples stay separate from personal records; records can be exported or erased | [Storage](src/app/store.ts), [CSV](src/core/records.ts) | [Persistence, isolation and erasure](tests/store.test.ts), [CSV regressions](tests/core.test.ts) |
 | A prepared desktop showcase exposes the actual blend and Progress | [Showcase](src/app/emulation/showcase.ts) | [Native-headset guard](tests/assistance.test.ts), [retained desktop checks](verification/desktop.json) |
+| The coach's plan and every explanation follow from the records | [Coach](src/core/coach.ts) | [Plans, explanations, next-step hints, visited days](tests/coach.test.ts) |
+| Forearm turn, wrist lift, pinch and repetitions are measured from joints | [Movement](src/core/movement.ts), [exercises](src/app/flow/exercises-more.ts) | [Movement regressions](tests/movement.test.ts) |
+| Visit sends compact hand poses and rejects malformed frames | [Pose codec](src/core/pose-codec.ts), [link](src/app/visit-link.ts) | [Codec and message regressions](tests/pose-codec.test.ts) |
+| Spoken commands press only an unambiguous visible stone | [Voice intent](src/core/voice-intent.ts) | [Matching, negation and ambiguity](tests/voice-intent.test.ts) |
+| The care summary escapes data and never prints invalid numbers | [Summary](src/core/report.ts) | [Summary regressions](tests/report.test.ts) |
 
-55 automated unit tests pass. Four complete first-session emulator input journeys and 60 room-placement checks are retained evidence. The current showcase, first-session regression and offline project path passed their desktop checks; [software and emulator summaries](verification) record their scope. Production offline operation, interruption controls, export/erase and disconnected-hand paths were exercised in the emulator. Dates, model assumptions and the original reference bars are retained in the [validation report](validation/REPORT.md) and [simulation reference](validation/PREREGISTRATION.md).
+178 automated unit tests pass. Four complete first-session emulator input journeys and 60 room-placement checks are retained evidence. The current showcase, first-session regression and offline project path passed their desktop checks; [software and emulator summaries](verification) record their scope. Production offline operation, interruption controls, export/erase and disconnected-hand paths were exercised in the emulator. Dates, model assumptions and the original reference bars are retained in the [validation report](validation/REPORT.md) and [simulation reference](validation/PREREGISTRATION.md).
 
 The stated 5° attempt simulation reaches 23.4% single-finger sensitivity and misses its original 90% target. Very small attempts can be missed. Software checks and desktop render budgets do not establish the competition's minimum 60 fps on Quest hardware.
 
@@ -82,14 +95,16 @@ npm.cmd run preview -- --host 127.0.0.1
 
 The test run produces the software-check summary used by the explanation page. A build also generates the interactive sample from the app's own model, then stamps the complete offline cache. Validation reproduces the stated synthetic S2–S5 and S11 checks. Existing bundled speech and models need no generation tools or Python at runtime.
 
-Useful preview routes: ?fresh for first onboarding, ?fresh&seed=21 for a complete later session, and ?fresh&showcase=handover, progress or measurement for the short desktop chapters. All sample routes use separate temporary storage. The plain URL on a headset uses personal records.
+Useful preview routes: ?fresh for first onboarding, ?fresh&seed=21 for a complete later session, ?fresh&program=deskbreak for a desk break, ?fresh&seed=3&goto=later for the in-headset later visit, and ?fresh&showcase=handover, progress or measurement for the short desktop chapters. Two tabs of ?seed=2&visit=local&visitcode=4321&goto=visit&visitrole=host and &visitrole=join run a Visit over a local browser channel. All sample routes use separate temporary storage. The plain URL on a headset uses personal records.
 
 ## Privacy and hosting
 
 No login or application data server. Personal records live in IndexedDB. Samples use memory. If storage is unavailable, the app keeps the current records in memory and explains how to export. Erase removes sessions, settings and the stored anchor. Hosting providers receive normal asset requests; offline use needs one successful online visit.
 
+Visit uses a peer-to-peer WebRTC connection. The public PeerJS broker only introduces the two browsers by their four-digit code; hand joints then travel directly between them and are not stored. Spoken commands use the browser's own speech recognition, which may process audio on the browser vendor's service; they are off by default.
+
 The Pages workflow checks types, runs unit tests, builds the application and uploads the deployable artifact. Deployment runs when the repository is public and GitHub Actions is selected as the Pages source. The relative asset paths support the repository's project URL. Verify that exact HTTPS path before submitting, then keep the submitted build unchanged after the deadline.
 
 ## Licenses
 
-Understudy is MIT, copyright Marc Donovici. Bundled third-party notices are retained: IWSDK, IWER and Three (MIT), WebXR generic hand assets (MIT), Atkinson Hyperlegible (SIL Open Font License 1.1), and generated speech from Kokoro-82M (Apache 2.0).
+Understudy is MIT, copyright Marc Donovici. Bundled third-party notices are retained: IWSDK, IWER and Three (MIT), PeerJS (MIT), WebXR generic hand assets (MIT), Atkinson Hyperlegible (SIL Open Font License 1.1), and generated speech from Kokoro-82M (Apache 2.0).

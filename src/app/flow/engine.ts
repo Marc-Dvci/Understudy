@@ -24,7 +24,11 @@ export type Expect =
   | { kind: 'tap-rhythm' }
   | { kind: 'warmup-fist'; rep: number }
   | { kind: 'imagine' }
-  | { kind: 'residual-touch' };
+  | { kind: 'residual-touch' }
+  | { kind: 'dial'; hands: Handedness[] }
+  | { kind: 'wave'; hands: Handedness[] }
+  | { kind: 'spread'; hands: Handedness[] }
+  | { kind: 'pinch-place'; hand: Handedness; from: number[]; to: number[] };
 
 interface Waiter {
   until: () => boolean;

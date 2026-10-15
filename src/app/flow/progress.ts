@@ -40,6 +40,11 @@ export async function showProgress(options: { hold?: boolean } = {}): Promise<vo
     add(us, 'opening', 'Hand opening');
   } else if (program === 'phantom') {
     add(us, 'pain', 'Pain after the session');
+  } else if (program === 'deskbreak') {
+    add('right', 'tam.total', 'Whole-hand range, right');
+    add('left', 'tam.total', 'Whole-hand range, left');
+    add('right', 'spread', 'Finger spread, right');
+    add('left', 'spread', 'Finger spread, left');
   } else {
     add('right', 'warmup.stiffness', 'Stiffness, right');
     add('left', 'warmup.stiffness', 'Stiffness, left');

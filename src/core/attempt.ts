@@ -98,6 +98,7 @@ export class FingerAttemptDetector {
 
   /** Feed one rest-calibration frame. */
   calibrate(angle: number, dt: number): void {
+    if (!Number.isFinite(angle) || !Number.isFinite(dt) || dt <= 0) return;
     this.filter(angle, dt);
     if (Number.isFinite(this.fastV)) this.restSamples.push(this.displacement);
   }
@@ -125,6 +126,13 @@ export class FingerAttemptDetector {
    * `leadMoving` whether it is above the Lead's own threshold.
    */
   update(angle: number, dt: number, leadVelocity: number, leadMoving: boolean): boolean {
+    if (!Number.isFinite(angle) || !Number.isFinite(dt) || dt <= 0) {
+      this.active = false;
+      this.gate = this.above = this.below = 0;
+      this.leadDir = 0;
+      this.leadAge = Infinity;
+      return false;
+    }
     this.filter(angle, dt);
     if (!this.calibrated || !Number.isFinite(this.fastV)) {
       this.gate += (0 - this.gate) * (1 - Math.exp(-dt / this.cfg.release));

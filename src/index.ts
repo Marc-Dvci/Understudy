@@ -17,6 +17,7 @@ import { store } from './app/store.js';
 import { StationSystem } from './app/station.js';
 import { QualitySystem } from './app/quality.js';
 import { loadFonts } from './app/ui/text.js';
+import { handle as voiceHandle } from './app/flow/voice-control.js';
 
 const base = import.meta.env.BASE_URL;
 services.base = base;
@@ -95,7 +96,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
       })
       .catch(() => undefined);
   }
-  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, store, flowSystem, quality: services.quality };
+  (window as unknown as Record<string, unknown>).__understudy = { state, flow, stage, world, store, flowSystem, quality: services.quality, say: voiceHandle };
 }).catch((error: unknown) => {
   console.error('[understudy] startup failed', error);
   const status = document.getElementById('status');

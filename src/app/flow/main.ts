@@ -11,6 +11,7 @@ import { store } from '../store.js';
 import { drawMessage } from '../ui/viz.js';
 import { flow, FlowInterrupted } from './engine.js';
 import { runProgram } from './programs.js';
+import { setVoiceCommands } from './voice-control.js';
 import { services } from './services.js';
 import { showcaseChapter } from '../emulation/showcase-options.js';
 import {
@@ -65,6 +66,7 @@ export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   const saved = await store.profile();
   if (saved) state.profile = saved;
   sound.voiceEnabled = state.profile.voice;
+  if (state.profile.voiceCommands) setVoiceCommands(true);
   const records = await store.sessions();
   await findTable();
   if (showcase) {
@@ -101,7 +103,7 @@ async function firstVisit(records: SessionRecord[]): Promise<void> {
   flow.step = 'tour';
   const q = new URLSearchParams(location.search);
   const side = await chooseSide(q.get('input') === 'left' ? 'right' : 'left');
-  state.profile.program = side === 'both' ? 'warmup' : await chooseProgram();
+  state.profile.program = await chooseProgram({ bothHands: side === 'both' });
   await store.saveProfile(state.profile);
   if (state.profile.program !== 'understudy') {
     await runProgram(state.profile.program);
@@ -139,31 +141,45 @@ async function feltQuestion(): Promise<string> {
   return id.replace('felt-', '');
 }
 
-export async function chooseProgram(): Promise<ProgramId> {
+/** Programmes that train both working hands together, with no mirror. */
+const BOTH_HANDS: ProgramId[] = ['warmup', 'deskbreak'];
+
+export async function chooseProgram(options: { bothHands?: boolean } = {}): Promise<ProgramId> {
   flow.step = 'choose-program';
   stage.stone({ id: 'prog-understudy', label: 'Understudy', sub: 'weak hand', icon: 'mirror', accent: PALETTE.understudy });
   stage.stone({ id: 'prog-phantom', label: 'Phantom', sub: 'missing hand', icon: 'spark', accent: '#8b6fd6' });
   stage.stone({ id: 'prog-warmup', label: 'Warm-up', sub: 'stiff hands', icon: 'sun', accent: PALETTE.lead });
+  stage.stone({ id: 'prog-deskbreak', label: 'Desk break', sub: 'busy hands', icon: 'hand', accent: PALETTE.good });
+  const both = !!options.bothHands;
   stage.board.draw(
-    drawMessage('Choose a daily programme', [
+    drawMessage('Choose a daily programme', both ? [
+      'Morning warm-up: stiff or sore hands.',
+      'Desk break: two minutes for hands that type, click or play all day.',
+    ] : [
       'Understudy: a hand that is weak after a stroke or injury.',
       'Phantom: pain or feeling in a missing hand.',
-      'Morning warm-up: stiff or sore hands.',
+      'Warm-up: stiff or sore hands. Desk break: hands that work all day.',
     ]),
   );
   stage.board.show();
   flow.say('choose-program', { icon: 'touch', title: 'Choose a programme' });
   // the demo can be steered to a programme with ?program=
-  const wanted = new URLSearchParams(location.search).get('program') ?? 'understudy';
-  const id = await flow.choose(['prog-understudy', 'prog-phantom', 'prog-warmup'], `prog-${wanted}`);
+  const ids = both ? ['prog-warmup', 'prog-deskbreak'] : ['prog-understudy', 'prog-phantom', 'prog-warmup', 'prog-deskbreak'];
+  const wanted = `prog-${new URLSearchParams(location.search).get('program') ?? (both ? 'warmup' : 'understudy')}`;
+  const id = await flow.choose(ids, ids.includes(wanted) ? wanted : ids[0]);
   stage.board.hide();
-  if (id !== 'prog-warmup' && state.profile.understudy === null) {
+  const program = id.replace('prog-', '') as ProgramId;
+  if (BOTH_HANDS.includes(program)) {
+    state.profile.understudy = null;
+    return program;
+  }
+  if (state.profile.understudy === null) {
     if (await chooseSide('left') === 'both') return 'warmup';
   }
-  return id.replace('prog-', '') as ProgramId;
+  return program;
 }
 
-const PROGRAM_SHORT: Record<ProgramId, string> = { understudy: 'Understudy', phantom: 'Phantom', warmup: 'Warm-up' };
+const PROGRAM_SHORT: Record<ProgramId, string> = { understudy: 'Understudy', phantom: 'Phantom', warmup: 'Warm-up', deskbreak: 'Desk break' };
 
 async function home(): Promise<void> {
   flow.step = 'home';
@@ -172,12 +188,70 @@ async function home(): Promise<void> {
   stage.stone({ id: 'home-progress', label: 'Progress', icon: 'chart' });
   stage.stone({ id: 'home-program', label: 'Programme', sub: PROGRAM_SHORT[state.profile.program], icon: 'mirror' });
   stage.stone({ id: 'home-settings', label: 'Settings', icon: 'settings' });
+  stage.stone({ id: 'home-later', label: 'Later visit', sub: 'sample', icon: 'chart', accent: PALETTE.understudy });
+  stage.stone({ id: 'home-visit', label: 'Visit', sub: 'with someone', icon: 'hand', accent: '#8b6fd6' });
   flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: store.sandbox ? 'Temporary sample session. Personal history is safe.' : store.persistent ? 'Your table is ready.' : 'Storage unavailable. Export from Settings before leaving.' });
-  const id = await flow.choose(['home-today', 'home-progress', 'home-program', 'home-settings'], 'home-today');
+  const ids = ['home-today', 'home-progress', 'home-program', 'home-settings', 'home-later', 'home-visit'];
+  stage.layoutStones(ids.slice(0, 4), 'far');
+  // the near row sits between the wrists, clear of resting fingertips
+  stage.layoutStones(ids.slice(4), 'near');
+  // the demo can be steered to a home choice with ?goto=
+  const goto = `home-${new URLSearchParams(location.search).get('goto') ?? 'today'}`;
+  flow.expect = { kind: 'press', id: ids.includes(goto) && !homeVisited.has(goto) ? goto : 'home-today' };
+  homeVisited.add(goto);
+  const id = await stage.press.wait(ids);
+  sound.press();
+  flow.expect = { kind: 'idle' };
+  await flow.wait(0.25);
+  stage.hideStones();
   if (id === 'home-today') await runProgram(state.profile.program);
   else if (id === 'home-progress') await (await import('./progress.js')).showProgress();
   else if (id === 'home-program') {
     state.profile.program = await chooseProgram();
     await store.saveProfile(state.profile);
-  } else await (await import('./settings.js')).runSettings();
+  } else if (id === 'home-later') await laterVisit();
+  else if (id === 'home-visit') await (await import('./visit.js')).runVisit();
+  else await (await import('./settings.js')).runSettings();
+}
+
+/** Home choices the demo has already taken, so `?goto=` steers only the first visit to home. */
+const homeVisited = new Set<string>();
+
+/**
+ * A later visit, inside the headset: 21 simulated earlier visits in a
+ * temporary store, then Progress and a complete session over that history,
+ * so the per-finger handover can be seen on day one. Personal history is
+ * never touched: it is reopened unchanged afterwards, and the sample record
+ * is dropped even when the session is stopped.
+ */
+async function laterVisit(): Promise<void> {
+  flow.step = 'later-visit';
+  const profile = structuredClone(state.profile);
+  const wasSandbox = store.sandbox;
+  const before = wasSandbox ? await store.sessions() : [];
+  const side = profile.understudy ?? 'left';
+  stage.board.draw(drawMessage('A later visit', [
+    'This shows visit 22 with 21 simulated earlier visits.',
+    'The sample is labelled and temporary. Your own history is not changed.',
+  ]));
+  stage.board.show();
+  flow.say('later-intro', { icon: 'chart', title: 'A later visit', body: 'Sample history, labelled. Yours is safe.' });
+  await flow.wait(7);
+  stage.board.hide();
+  await store.init({ sandbox: true });
+  const { seedHistory } = await import('../emulation/seed.js');
+  for (const r of seedHistory(21, side)) await store.saveSession(r);
+  state.profile = { ...profile, understudy: side, program: 'understudy' };
+  await stage.setUnderstudySide(services.base);
+  try {
+    await (await import('./progress.js')).showProgress();
+    await runProgram('understudy');
+  } finally {
+    // a stopped sample session must never be saved into personal history
+    flow.currentRecord = null;
+    await store.init({ sandbox: wasSandbox });
+    for (const r of before) await store.saveSession(r);
+    state.profile = profile;
+    await stage.setUnderstudySide(services.base);
+  }
 }

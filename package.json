@@ -21,6 +21,7 @@
     "@pmndrs/uikit": "^1.0.74",
     "@pmndrs/uikit-horizon": "^1.0.74",
     "@pmndrs/uikit-lucide": "^1.0.74",
+    "peerjs": "1.5.5",
     "three": "npm:super-three@0.181.0"
   },
   "devDependencies": {

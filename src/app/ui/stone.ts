@@ -93,6 +93,11 @@ export class Stone {
     this.drawFace();
   }
 
+  /** The label and secondary line, for spoken commands. */
+  get text(): { label: string; sub?: string } {
+    return { label: this.opts.label, sub: this.opts.sub };
+  }
+
   setLabel(label: string, sub?: string, icon?: IconName): void {
     if (this.opts.label === label && this.opts.sub === sub && this.opts.icon === (icon ?? this.opts.icon)) return;
     this.opts = { ...this.opts, label, sub, icon: icon ?? this.opts.icon };

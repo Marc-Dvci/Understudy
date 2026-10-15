@@ -54,7 +54,25 @@ export class HandInputSystem extends createSystem({}) {
       this.player.updateWorldMatrix(true, false);
       const pm = this.player.matrixWorld.elements;
       let controllers = false;
+      let transient = false;
       for (const source of session.inputSources) {
+        // eye gaze + pinch, where the browser exposes it, arrives as a transient pointer
+        if (source.targetRayMode === ('transient-pointer' as XRTargetRayMode)) {
+          const pose = frame.getPose(source.targetRaySpace, ref);
+          if (pose) {
+            const m = pose.transform.matrix;
+            const t = state.transient;
+            t.origin[0] = pm[0] * m[12] + pm[4] * m[13] + pm[8] * m[14] + pm[12];
+            t.origin[1] = pm[1] * m[12] + pm[5] * m[13] + pm[9] * m[14] + pm[13];
+            t.origin[2] = pm[2] * m[12] + pm[6] * m[13] + pm[10] * m[14] + pm[14];
+            // the ray runs along -Z of the target-ray space
+            t.dir[0] = -(pm[0] * m[8] + pm[4] * m[9] + pm[8] * m[10]);
+            t.dir[1] = -(pm[1] * m[8] + pm[5] * m[9] + pm[9] * m[10]);
+            t.dir[2] = -(pm[2] * m[8] + pm[6] * m[9] + pm[10] * m[10]);
+            transient = true;
+          }
+          continue;
+        }
         if (!source.hand && source.gamepad && (source.handedness === 'left' || source.handedness === 'right')) controllers = true;
         if (!source.hand || (source.handedness !== 'left' && source.handedness !== 'right')) continue;
         let spaces = this.spaces.get(source);
@@ -70,6 +88,7 @@ export class HandInputSystem extends createSystem({}) {
         this.seen[source.handedness] = true;
       }
       state.controllers = controllers;
+      state.transient.active = transient;
     }
 
     for (const h of HANDS) this.finish(state.hands[h], this.seen[h], delta);
