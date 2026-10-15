@@ -59,6 +59,13 @@ export class FlowSystem extends createSystem({}) {
         // films use a narrower camera than the headset's own field of view
         const fov = Number(q.get('fov'));
         if (fov > 20 && fov < 120) (driver.device as unknown as { fovy: number }).fovy = (fov * Math.PI) / 180;
+        // films: ?cam=auto moves between seated viewpoints, ?hold=step:seconds lingers before a press
+        const cam = q.get('cam');
+        if (cam) this.autopilot.cam = cam as Autopilot['cam'];
+        for (const part of (q.get('hold') ?? '').split(',')) {
+          const [step, seconds] = part.split(':');
+          if (step && Number(seconds) > 0) this.autopilot.holds[step] = Number(seconds);
+        }
         if (input === 'dwell') this.autopilot.inputMode = 'dwell';
         if (input === 'gaze') this.autopilot.inputMode = 'gaze';
         const missing = q.get('missing');

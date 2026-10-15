@@ -19,7 +19,7 @@ import { celebrate } from './playful.js';
 
 /** How far across the table the other person's hands appear, metres beyond the mat centre. */
 const ACROSS = 0.3;
-const VISITOR = makeGhostMaterial('#b9a2ef', 0.5);
+const VISITOR = makeGhostMaterial('#b39af0', 0.78);
 
 function query(): URLSearchParams {
   return new URLSearchParams(location.search);

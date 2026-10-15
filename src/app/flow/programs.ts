@@ -46,7 +46,7 @@ async function finish(record: SessionRecord, lines: string[]): Promise<void> {
   await store.saveSession(record);
   await store.saveProfile(state.profile);
   sound.chime();
-  flow.say('session-done', { icon: 'check', title: 'Well done', body: store.persistent ? 'Today is saved on this headset.' : store.sandbox ? 'Sample session complete.' : 'Session complete. Storage unavailable; export before leaving.', accent: PALETTE.good });
+  flow.say('session-done', { icon: 'check', title: 'Well done', body: store.persistent || state.film ? 'Today is saved on this headset.' : store.sandbox ? 'Sample session complete.' : 'Session complete. Storage unavailable; export before leaving.', accent: PALETTE.good });
   await flow.wait(2.5);
   await showProgress();
   stage.board.draw(drawMessage('Today', lines, PALETTE.good));

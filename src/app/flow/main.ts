@@ -67,6 +67,8 @@ export async function runApp(options: { fresh?: boolean } = {}): Promise<void> {
   if (saved) state.profile = saved;
   sound.voiceEnabled = state.profile.voice;
   if (state.profile.voiceCommands) setVoiceCommands(true);
+  // demos and films can show the Playful style without visiting Settings
+  if (store.sandbox && query.get('style') === 'playful') state.profile.style = 'playful';
   const records = await store.sessions();
   await findTable();
   if (showcase) {
@@ -190,7 +192,7 @@ async function home(): Promise<void> {
   stage.stone({ id: 'home-settings', label: 'Settings', icon: 'settings' });
   stage.stone({ id: 'home-later', label: 'Later visit', sub: 'sample', icon: 'chart', accent: PALETTE.understudy });
   stage.stone({ id: 'home-visit', label: 'Visit', sub: 'with someone', icon: 'hand', accent: '#8b6fd6' });
-  flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: store.sandbox ? 'Temporary sample session. Personal history is safe.' : store.persistent ? 'Your table is ready.' : 'Storage unavailable. Export from Settings before leaving.' });
+  flow.say('home-back', { icon: 'sun', title: 'Welcome back', body: store.sandbox && !state.film ? 'Temporary sample session. Personal history is safe.' : store.persistent || state.film ? 'Your table is ready.' : 'Storage unavailable. Export from Settings before leaving.' });
   const ids = ['home-today', 'home-progress', 'home-program', 'home-settings', 'home-later', 'home-visit'];
   stage.layoutStones(ids.slice(0, 4), 'far');
   // the near row sits between the wrists, clear of resting fingertips

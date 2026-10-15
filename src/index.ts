@@ -48,6 +48,7 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
   flowSystem.wantAutopilot = params.has('demo') || (import.meta.env.DEV && !params.has('manual'));
   flowSystem.demoRoom = !params.has('sem') && !params.has('noroom');
   if (params.get('input') === 'gaze') stage.press.gazeEnabled = true;
+  state.film = params.has('film');
   if (params.has('nolabel') && services.station) services.station.ignoreLabels = true;
 
   world.createTransformEntity(stage.root);

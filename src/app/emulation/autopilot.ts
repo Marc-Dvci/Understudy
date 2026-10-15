@@ -50,6 +50,12 @@ export class Autopilot {
   missingHand: Handedness | null = null;
   /** When set, the head turns to look at this world point instead of the mat. */
   private lookAt: Float64Array | null = null;
+  /** Film camera: 'auto' picks a seated viewpoint per step and eases between them. */
+  cam: 'auto' | CamPreset | null = null;
+  private readonly camPos = v3(NaN, NaN, NaN);
+  private readonly camLook = v3();
+  /** Film pacing: extra seconds to linger before pressing, per flow step. */
+  holds: Record<string, number> = {};
   private readonly tableY: number;
   private readonly tableCenter: Float64Array;
 
@@ -155,6 +161,14 @@ export class Autopilot {
       const dx = this.lookAt[0] - this.head[0];
       const dy = this.lookAt[1] - this.head[1];
       const dz = this.lookAt[2] - this.head[2];
+      yaw = Math.atan2(-dx, -dz);
+      pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    }
+    if (this.cam && state.station.ready && !this.lookAt) {
+      this.filmCamera(dt);
+      const dx = this.camLook[0] - this.head[0];
+      const dy = this.camLook[1] - this.head[1];
+      const dz = this.camLook[2] - this.head[2];
       yaw = Math.atan2(-dx, -dz);
       pitch = Math.atan2(dy, Math.hypot(dx, dz));
     }
@@ -277,6 +291,31 @@ export class Autopilot {
     }
   }
 
+  /** Eases the head toward the preset for the current step (station frame: forward, right, up). */
+  private filmCamera(dt: number): void {
+    const preset = this.cam === 'auto' ? autoPreset(flow.step) : this.cam!;
+    const p = CAM[preset === 'cloth' ? (understudyHand() === 'left' ? 'leanL' : 'leanR') : preset];
+    const s = state.station;
+    const at = (a: number, b: number, h: number, out: Float64Array) => {
+      out[0] = s.center[0] + s.forward[0] * a + s.right[0] * b;
+      out[1] = s.center[1] + h;
+      out[2] = s.center[2] + s.forward[2] * a + s.right[2] * b;
+      return out;
+    };
+    const pos = at(p.pos[0], p.pos[1], p.pos[2], v3());
+    const look = at(p.look[0], p.look[1], p.look[2], v3());
+    if (!Number.isFinite(this.camPos[0])) {
+      this.camPos.set(pos);
+      this.camLook.set(look);
+    }
+    const k = 1 - Math.exp(-dt / 0.9);
+    for (let i = 0; i < 3; i++) {
+      this.camPos[i] += (pos[i] - this.camPos[i]) * k;
+      this.camLook[i] += (look[i] - this.camLook[i]) * k;
+    }
+    this.head.set(this.camPos);
+  }
+
   resetWarmup(): void {
     this.warmRep = -1;
   }
@@ -300,7 +339,7 @@ export class Autopilot {
   }
 
   private async poke(h: Handedness, id: string): Promise<void> {
-    await flow.wait(0.8 + this.r() * 0.4);
+    await flow.wait(0.8 + this.r() * 0.4 + (this.holds[flow.step] ?? 0));
     const s = stage.press.get(id);
     if (!s) return;
     const w = s.group.getWorldPosition(new Vector3());
@@ -418,6 +457,29 @@ export class Autopilot {
       this.tapPhase = 0;
     }
   }
+}
+
+/** Seated film viewpoints: head and look-at as (forward, right, up) metres from the mat centre. */
+export type CamPreset = 'seat' | 'close' | 'leanL' | 'leanR' | 'board' | 'low' | 'cloth' | 'across';
+const CAM: Record<Exclude<CamPreset, 'cloth'>, { pos: [number, number, number]; look: [number, number, number] }> = {
+  seat: { pos: [-0.5, 0.06, 0.42], look: [0.0, 0.0, 0.0] },
+  close: { pos: [-0.3, 0.0, 0.3], look: [0.1, 0.0, 0.0] },
+  leanL: { pos: [-0.32, -0.26, 0.3], look: [0.08, 0.04, 0.0] },
+  leanR: { pos: [-0.36, 0.2, 0.32], look: [0.08, -0.03, 0.0] },
+  board: { pos: [-0.2, 0.0, 0.27], look: [0.26, 0.0, 0.12] },
+  low: { pos: [-0.36, 0.12, 0.15], look: [0.1, 0.0, 0.03] },
+  across: { pos: [-0.3, 0.05, 0.26], look: [0.24, 0.0, 0.04] },
+};
+
+function autoPreset(step: string): CamPreset {
+  if (step === 'coach-plan' || step === 'coach-why' || step === 'progress' || step === 'next-visit' || step === 'done') return 'board';
+  if (step === 'cloth' || step === 'mirror-play' || step === 'drift' || step === 'ex-stones') return 'cloth';
+  if (step === 'ex-flower' || step === 'ex-spread' || step === 'ex-tap' || step === 'recognise' || step === 'imagine') return 'close';
+  if (step === 'ex-dial') return 'close';
+  if (step === 'ex-piano' || step === 'ex-thumb') return 'leanR';
+  if (step === 'ex-wave') return 'low';
+  if (step === 'visit-together') return 'across';
+  return 'seat';
 }
 
 function spreadAngles(): HandAngles {

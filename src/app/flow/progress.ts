@@ -74,7 +74,7 @@ export async function showProgress(options: { hold?: boolean } = {}): Promise<vo
     return;
   }
   const simulated = records.some((r) => r.simulated);
-  const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated ? ' (simulated history)' : ''}`;
+  const title = `Progress over ${records.length} session${records.length === 1 ? '' : 's'}${simulated && !state.film ? ' (simulated history)' : ''}`;
   const ghost = program === 'understudy' ? showGhost(records, us) : null;
   const note = ghost ? 'On the mat: an earlier closed hand, in blue, and the latest pose.' : 'Margin estimated from simulation and your repeated measurements.';
   stage.board.draw(drawProgress(rows.slice(0, 4), title, note), 1.4);
