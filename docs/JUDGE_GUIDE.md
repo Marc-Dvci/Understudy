@@ -2,6 +2,8 @@
 
 Understudy is a seated daily mirror exercise. Its distinctive loop is **measure, set assistance per finger, exercise, compare on the next visit**. The working hand leads a reflection above the weaker hand; repeated measurements determine how much each finger follows that reflection.
 
+**Demo video:** <https://youtu.be/GQnz-b9IVoE>
+
 ## Explore in a browser
 
 Open the hosted HTTPS build in desktop Chrome or Edge and choose **Explore handover**. It runs the actual app in Meta IWER with simulated hands and prepared sample history.
