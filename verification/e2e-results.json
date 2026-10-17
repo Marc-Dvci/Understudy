@@ -1,0 +1,106 @@
+{
+  "generated": "2026-10-17T19:35:26.358Z",
+  "mask": {
+    "left": 37,
+    "right": 37,
+    "up": 25,
+    "down": 43
+  },
+  "budget": {
+    "calls": 80,
+    "triangles": 120000
+  },
+  "S7": [
+    {
+      "mode": "lead-right",
+      "reached": true,
+      "seconds": 211,
+      "pressMethods": {
+        "poke": 3
+      },
+      "errors": []
+    },
+    {
+      "mode": "lead-left",
+      "reached": true,
+      "seconds": 211,
+      "pressMethods": {
+        "poke": 3
+      },
+      "errors": []
+    },
+    {
+      "mode": "dwell-only",
+      "reached": true,
+      "seconds": 214,
+      "pressMethods": {
+        "dwell": 3
+      },
+      "errors": []
+    },
+    {
+      "mode": "gaze-only",
+      "reached": true,
+      "seconds": 213,
+      "pressMethods": {
+        "gaze": 3
+      },
+      "errors": []
+    }
+  ],
+  "S8": {
+    "checked": 27672,
+    "worstUpDeg": 15.945710663841972,
+    "byStep": [
+      {
+        "mode": "lead-right"
+      },
+      {
+        "mode": "lead-left"
+      },
+      {
+        "mode": "dwell-only"
+      },
+      {
+        "mode": "gaze-only"
+      }
+    ],
+    "outside": []
+  },
+  "S9": [
+    {
+      "mode": "lead-right",
+      "maxCalls": 76,
+      "maxTriangles": 63128,
+      "samples": 821
+    },
+    {
+      "mode": "lead-left",
+      "maxCalls": 76,
+      "maxTriangles": 63128,
+      "samples": 820
+    },
+    {
+      "mode": "dwell-only",
+      "maxCalls": 76,
+      "maxTriangles": 63128,
+      "samples": 833
+    },
+    {
+      "mode": "gaze-only",
+      "maxCalls": 76,
+      "maxTriangles": 63128,
+      "samples": 828
+    }
+  ],
+  "panels": {
+    "samples": 4015,
+    "visibleWithMat": 0,
+    "fitInOneView": 1
+  },
+  "pass": {
+    "S7": true,
+    "S8": true,
+    "S9": true
+  }
+}

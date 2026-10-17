@@ -70,6 +70,8 @@ docs/QUEST_TEST_PROTOCOL.md
 tools/*
 !tools/precache.mjs
 !tools/site-evidence.mjs
+!tools/e2e-suite.mjs
+!tools/browser-options.mjs
 validation/audit/
 validation/*-results.json
 validation/fixtures/

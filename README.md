@@ -95,6 +95,8 @@ npm.cmd run build
 npm.cmd run preview -- --host 127.0.0.1
 ~~~
 
+With the dev server running, `node tools/e2e-suite.mjs` drives the tour and first session in four input modes (poke with either hand, dwell, head gaze) in the emulator and checks the glasses view mask and the render budget (`SEQ=1` runs one browser at a time). Results: [verification/e2e-results.json](verification/e2e-results.json); a full passing run also refreshes the journeys and render entries of [verification/emulator.json](verification/emulator.json).
+
 The test run produces the software-check summary used by the explanation page. A build also generates the interactive sample from the app's own model, then stamps the complete offline cache. Validation reproduces the stated synthetic S2–S5 and S11 checks. Existing bundled speech and models need no generation tools or Python at runtime.
 
 Useful preview routes: ?fresh for first onboarding, ?fresh&seed=21 for a complete later session, ?fresh&program=deskbreak for a desk break, ?fresh&seed=3&goto=later for the in-headset later visit, and ?fresh&showcase=handover, progress or measurement for the short desktop chapters. Two tabs of ?seed=2&visit=local&visitcode=4321&goto=visit&visitrole=host and &visitrole=join run a Visit over a local browser channel. All sample routes use separate temporary storage. The plain URL on a headset uses personal records.

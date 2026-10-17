@@ -1,12 +1,12 @@
 {
   "scope": "IWER emulator checks. No physical hardware or participant evidence.",
   "inputJourneys": {
-    "recorded": "2026-10-05T18:52:08.239Z",
+    "recorded": "2026-10-17T19:35:26.358Z",
     "journeys": [
       {
         "mode": "lead-right",
         "reached": true,
-        "seconds": 192,
+        "seconds": 211,
         "pressMethods": {
           "poke": 3
         }
@@ -14,7 +14,7 @@
       {
         "mode": "lead-left",
         "reached": true,
-        "seconds": 192,
+        "seconds": 211,
         "pressMethods": {
           "poke": 3
         }
@@ -22,7 +22,7 @@
       {
         "mode": "dwell-only",
         "reached": true,
-        "seconds": 195,
+        "seconds": 214,
         "pressMethods": {
           "dwell": 3
         }
@@ -30,7 +30,7 @@
       {
         "mode": "gaze-only",
         "reached": true,
-        "seconds": 194,
+        "seconds": 213,
         "pressMethods": {
           "gaze": 3
         }
@@ -38,30 +38,30 @@
     ]
   },
   "geometry": {
-    "recorded": "2026-10-05T18:52:08.239Z",
-    "checkedStoneCorners": 25312,
+    "recorded": "2026-10-17T19:35:26.358Z",
+    "checkedStoneCorners": 27672,
     "callsBudget": 80,
     "trianglesBudget": 120000,
     "modes": [
       {
         "mode": "lead-right",
-        "maxCalls": 66,
-        "maxTriangles": 44612
+        "maxCalls": 76,
+        "maxTriangles": 63128
       },
       {
         "mode": "lead-left",
-        "maxCalls": 66,
-        "maxTriangles": 44612
+        "maxCalls": 76,
+        "maxTriangles": 63128
       },
       {
         "mode": "dwell-only",
-        "maxCalls": 66,
-        "maxTriangles": 44612
+        "maxCalls": 76,
+        "maxTriangles": 63128
       },
       {
         "mode": "gaze-only",
-        "maxCalls": 66,
-        "maxTriangles": 44612
+        "maxCalls": 76,
+        "maxTriangles": 63128
       }
     ]
   },
