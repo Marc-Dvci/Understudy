@@ -56,7 +56,13 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
   };
   void check();
 
-  start.addEventListener('click', () => {
+  // Everything the session needs before it starts. In the emulator, its own
+  // Enter XR button starts the session without this page's button, so entering
+  // by either route prepares the same demo.
+  let prepared = false;
+  const prepare = () => {
+    if (prepared) return;
+    prepared = true;
     onGesture();
     if (quick && !query.has('showcase')) {
       const next = new URL(location.href);
@@ -71,9 +77,13 @@ export function setupLanding(world: World, onGesture: () => void, onDemo: () => 
     }
     // the click that starts the demo also unlocks audio, so the voice plays
     if (emulated) onDemo();
+  };
+  start.addEventListener('click', () => {
+    prepare();
     world.launchXR();
   });
   world.visibilityState.subscribe((v) => {
+    if (v !== VisibilityState.NonImmersive && emulated && !start.disabled) prepare();
     root.classList.toggle('hidden', v !== VisibilityState.NonImmersive);
   });
 }

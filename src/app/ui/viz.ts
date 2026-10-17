@@ -297,16 +297,27 @@ export function drawMessage(title: string, lines: string[], accent = PALETTE.und
     ctx.fillStyle = PALETTE.ink;
     ctx.font = `700 ${Math.round(h * 0.13)}px ${FONT}`;
     ctx.fillText(title, 80, h * 0.22);
-    ctx.font = `400 ${Math.round(h * 0.085)}px ${FONT}`;
     ctx.fillStyle = '#334155';
+    // shrink the body until every line fits on the card
+    let scale = 1;
+    const layout = () => {
+      ctx.font = `400 ${Math.round(h * 0.085 * scale)}px ${FONT}`;
+      return lines.map((l) => wrapText(ctx, l, w - 160));
+    };
+    let rows = layout();
+    const lastLine = () => h * 0.4 + (rows.flat().length - 1) * h * 0.105 * scale + (rows.length - 1) * h * 0.02 * scale;
+    while (lastLine() > h * 0.92 && scale > 0.65) {
+      scale -= 0.05;
+      rows = layout();
+    }
     let y = h * 0.4;
-    for (const l of lines) {
-      for (const part of wrapText(ctx, l, w - 160)) {
+    for (const parts of rows) {
+      for (const part of parts) {
         if (y > h * 0.92) break;
         ctx.fillText(part, 80, y);
-        y += h * 0.105;
+        y += h * 0.105 * scale;
       }
-      y += h * 0.02;
+      y += h * 0.02 * scale;
     }
   };
 }
@@ -323,6 +334,8 @@ export function drawMeter(shares: number[], stageLabel: string, attempt: number[
     ctx.fillStyle = PALETTE.ink;
     ctx.textAlign = 'center';
     ctx.font = `700 ${Math.round(h * 0.15)}px ${FONT}`;
+    const labelWidth = ctx.measureText(stageLabel).width;
+    if (labelWidth > w - 40) ctx.font = `700 ${Math.floor(h * 0.15 * (w - 40) / labelWidth)}px ${FONT}`;
     ctx.fillText(stageLabel, w / 2, h * 0.22);
     const gw = (w - 40) / 5;
     for (let f = 0; f < 5; f++) {

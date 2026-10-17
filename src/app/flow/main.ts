@@ -105,7 +105,8 @@ async function firstVisit(records: SessionRecord[]): Promise<void> {
   flow.step = 'tour';
   const q = new URLSearchParams(location.search);
   const missing = q.get('missing');
-  const side = await chooseSide(missing === 'left' || missing === 'right' ? missing : q.get('input') === 'left' ? 'right' : 'left');
+  const twoHands = q.get('program') === 'warmup' || q.get('program') === 'deskbreak';
+  const side = await chooseSide(missing === 'left' || missing === 'right' ? missing : twoHands ? 'both' : q.get('input') === 'left' ? 'right' : 'left');
   state.profile.program = await chooseProgram({ bothHands: side === 'both' });
   await store.saveProfile(state.profile);
   if (state.profile.program !== 'understudy') {
