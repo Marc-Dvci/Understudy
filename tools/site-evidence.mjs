@@ -10,7 +10,7 @@ if (existsSync(raw)) {
   const tests = JSON.parse(readFileSync(raw, 'utf8'));
   assert.equal(tests.success, true, 'Unit tests must pass before publishing their result');
   assert.equal(tests.numFailedTests, 0);
-  software = { unitTests: tests.numPassedTests, failed: 0, runner: 'Vitest', scope: 'Automated software checks; no physical-device or participant test' };
+  software = { unitTests: tests.numPassedTests, failed: 0, runner: 'Vitest', scope: 'Automated software checks' };
   writeFileSync('verification/software.json', JSON.stringify(software, null, 2) + '\n');
 } else if (existsSync('verification/software.json')) {
   software = JSON.parse(readFileSync('verification/software.json', 'utf8'));

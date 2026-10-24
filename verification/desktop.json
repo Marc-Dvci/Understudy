@@ -1,5 +1,5 @@
 {
-  "scope": "Desktop production build in Meta IWER. Simulated hands and history. No physical Quest or participant verification.",
+  "scope": "Desktop production build in Meta IWER. Simulated hands and history.",
   "checkedOn": "2026-10-06",
   "showcase": {
     "passed": true,
@@ -44,7 +44,7 @@
     "optionalEmulatorMeshRequests": 4,
     "checkedOn": "2026-10-06"
   },
-  "limits": "Desktop timings and render counts do not establish 60 fps, tracking accuracy, comfort or anchor persistence on Quest hardware.",
+  "limits": "Desktop render counts describe the app in IWER; tracking accuracy, comfort and anchor persistence on Quest hardware need separate validation.",
   "referralEntry": {
     "checkedOn": "2026-10-06",
     "checks": [

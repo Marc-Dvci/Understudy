@@ -16,6 +16,7 @@ import { state } from './app/state.js';
 import { store } from './app/store.js';
 import { StationSystem } from './app/station.js';
 import { QualitySystem } from './app/quality.js';
+import { ShaderWarmUp } from './app/render/warmup.js';
 import { loadFonts } from './app/ui/text.js';
 import { handle as voiceHandle } from './app/flow/voice-control.js';
 
@@ -61,6 +62,8 @@ World.create(document.getElementById('scene-container') as HTMLDivElement, proje
     if (started) return;
     started = true;
     stage.trackedStyle = flowSystem.autopilot || state.emulated ? 'skin' : 'occluder';
+    // compile every shader over the next XR frames, before anything is on the table
+    services.quality?.requestWarmUp(() => new ShaderWarmUp(world.renderer, world.scene, world.camera, stage));
     void runApp({ fresh: freshFlag || params.has('fresh') || params.has('demo') || demoMode }).catch((e) => console.error('[understudy] flow failed', e));
   };
   world.visibilityState.subscribe((v) => {

@@ -144,6 +144,10 @@ export class HandModel {
     return this.loaded;
   }
 
+  getMaterial(): Material {
+    return this.material;
+  }
+
   setMaterial(material: Material): void {
     if (material === this.material) return;
     this.material = material;

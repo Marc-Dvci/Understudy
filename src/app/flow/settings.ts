@@ -61,8 +61,8 @@ export async function runSettings(): Promise<void> {
     stage.hideStones();
     if (id === 'set-done') break;
     if (id === 'set-diag') {
-      const code = services.quality?.code() ?? 'unavailable';
-      stage.board.draw(drawMessage('Device check', ['Read this code to the developer:', code, 'It holds frame timing and the features this headset supports. No personal data.']));
+      const lines = services.quality?.report() ?? ['Frame timing unavailable.'];
+      stage.board.draw(drawMessage('Device check', [...lines, 'Frame timing and supported features only. No personal data.']));
       await flow.wait(8);
       continue;
     }

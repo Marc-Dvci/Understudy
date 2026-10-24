@@ -65,13 +65,14 @@ AGENTS.md
 **/AGENTS.md
 CLAUDE.md
 opencode.json
-docs/PERFORMANCE.md
 docs/QUEST_TEST_PROTOCOL.md
 tools/*
 !tools/precache.mjs
 !tools/site-evidence.mjs
 !tools/e2e-suite.mjs
 !tools/browser-options.mjs
+!tools/check-frame-work.mjs
+!tools/check-quest-entry.mjs
 validation/audit/
 validation/*-results.json
 validation/fixtures/

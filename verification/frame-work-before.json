@@ -1,0 +1,222 @@
+{
+  "label": "before",
+  "recorded": "2026-10-24T19:10:28.239Z",
+  "scope": "Windows Chromium with Meta IWER, page CPU throttled 4x. Per-frame CPU time in world.update and renderer.render; GPU execution is not included.",
+  "url": "https://127.0.0.1:4180/?fresh&seed=21&demo&noroom",
+  "reached": true,
+  "frames": 8267,
+  "steadyMs": {
+    "p50": 4.7,
+    "p95": 6.6,
+    "p99": 8.6,
+    "max": 306
+  },
+  "startupMaxMs": 214.3,
+  "over8ms": 121,
+  "programs": {
+    "atSessionStart": 4,
+    "atEnd": 18,
+    "warmUp": null,
+    "compiledDuringRoutine": [
+      {
+        "t": 3535,
+        "step": "find-table",
+        "added": 1,
+        "frameMs": 24.4,
+        "duringWarmUp": false
+      },
+      {
+        "t": 4619,
+        "step": "find-table",
+        "added": 2,
+        "frameMs": 306,
+        "duringWarmUp": false
+      },
+      {
+        "t": 4745,
+        "step": "find-table",
+        "added": 2,
+        "frameMs": 109.8,
+        "duringWarmUp": false
+      },
+      {
+        "t": 6465,
+        "step": "home",
+        "added": 2,
+        "frameMs": 91.3,
+        "duringWarmUp": false
+      },
+      {
+        "t": 54879,
+        "step": "cloth",
+        "added": 1,
+        "frameMs": 102.9,
+        "duringWarmUp": false
+      },
+      {
+        "t": 68780,
+        "step": "ex-flower",
+        "added": 1,
+        "frameMs": 86.7,
+        "duringWarmUp": false
+      },
+      {
+        "t": 122962,
+        "step": "progress",
+        "added": 1,
+        "frameMs": 199.1,
+        "duringWarmUp": false
+      }
+    ]
+  },
+  "heapRiseMBPerS": 0,
+  "slowest": [
+    {
+      "t": 4.62,
+      "ms": 306,
+      "step": "find-table"
+    },
+    {
+      "t": 122.96,
+      "ms": 199.1,
+      "step": "progress"
+    },
+    {
+      "t": 4.74,
+      "ms": 109.8,
+      "step": "find-table"
+    },
+    {
+      "t": 54.88,
+      "ms": 102.9,
+      "step": "cloth"
+    },
+    {
+      "t": 6.46,
+      "ms": 91.3,
+      "step": "home"
+    },
+    {
+      "t": 68.78,
+      "ms": 86.7,
+      "step": "ex-flower"
+    },
+    {
+      "t": 68.94,
+      "ms": 43.2,
+      "step": "ex-flower"
+    },
+    {
+      "t": 108.63,
+      "ms": 30,
+      "step": "ex-dial"
+    },
+    {
+      "t": 114.36,
+      "ms": 25.1,
+      "step": "ex-dial"
+    },
+    {
+      "t": 82.9,
+      "ms": 25,
+      "step": "ex-spread"
+    },
+    {
+      "t": 110.35,
+      "ms": 24.8,
+      "step": "ex-dial"
+    },
+    {
+      "t": 3.53,
+      "ms": 24.4,
+      "step": "find-table"
+    }
+  ],
+  "steps": {
+    "boot": {
+      "frames": 12,
+      "p50": 7.7,
+      "p95": 214.3,
+      "max": 214.3
+    },
+    "find-table": {
+      "frames": 133,
+      "p50": 5.9,
+      "p95": 8.4,
+      "max": 306
+    },
+    "home": {
+      "frames": 189,
+      "p50": 5,
+      "p95": 6.5,
+      "max": 91.3
+    },
+    "hand-print": {
+      "frames": 1926,
+      "p50": 4.4,
+      "p95": 5.9,
+      "max": 10.8
+    },
+    "coach-plan": {
+      "frames": 330,
+      "p50": 4.5,
+      "p95": 5.4,
+      "max": 8.2
+    },
+    "coach-why": {
+      "frames": 421,
+      "p50": 4.5,
+      "p95": 5.9,
+      "max": 21.5
+    },
+    "cloth": {
+      "frames": 903,
+      "p50": 4.3,
+      "p95": 5.7,
+      "max": 102.9
+    },
+    "ex-flower": {
+      "frames": 735,
+      "p50": 5.3,
+      "p95": 7,
+      "max": 86.7
+    },
+    "ex-spread": {
+      "frames": 701,
+      "p50": 5.4,
+      "p95": 7.4,
+      "max": 25
+    },
+    "ex-stones": {
+      "frames": 734,
+      "p50": 5,
+      "p95": 6.6,
+      "max": 20.3
+    },
+    "ex-dial": {
+      "frames": 907,
+      "p50": 5.3,
+      "p95": 7.7,
+      "max": 30
+    },
+    "done": {
+      "frames": 150,
+      "p50": 4.3,
+      "p95": 5.3,
+      "max": 11.7
+    },
+    "progress": {
+      "frames": 778,
+      "p50": 4.3,
+      "p95": 5.9,
+      "max": 199.1
+    },
+    "next-visit": {
+      "frames": 360,
+      "p50": 4.2,
+      "p95": 5.4,
+      "max": 6.6
+    }
+  },
+  "errors": []
+}

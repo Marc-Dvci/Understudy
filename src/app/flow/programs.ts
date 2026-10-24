@@ -156,8 +156,13 @@ async function understudySession(carried?: CarriedPrint): Promise<void> {
   await flow.until(() => mirror.attemptPhase === 'on', 14);
   mirror.forceWatch = mirror.attemptPhase !== 'on';
   const stageLabel = record.stage === 'watch' ? 'Watch' : record.stage === 'perform' ? 'Perform' : 'Rehearse';
+  // the meter's texture is uploaded again only when an attempt ring visibly changes
+  let drawn = '';
   const drawLive = () => {
     const gates = [0, 1, 2, 3, 4].map((f) => Math.max(mirror.handDetector.gate, mirror.fingerDetectors[f].gate));
+    const key = gates.map((g) => (g > 0.05 ? Math.round(Math.min(1, g) * 100) : 0)).join();
+    if (key === drawn) return;
+    drawn = key;
     stage.meter.draw(drawMeter(shares, `${stageLabel}: your own share`, gates));
   };
   drawLive();

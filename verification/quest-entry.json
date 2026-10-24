@@ -1,0 +1,22 @@
+{
+  "generated": "2026-10-24T19:44:18.686Z",
+  "url": "https://127.0.0.1:4181/",
+  "questUserAgent": "Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/41.2.0.7.47 SamsungBrowser/4.0 Chrome/140.0.7339.207 VR Safari/537.36",
+  "runs": [
+    {
+      "name": "quest-browser",
+      "emulator": null,
+      "nativeXR": true,
+      "emulated": false,
+      "errors": []
+    },
+    {
+      "name": "desktop",
+      "emulator": "metaQuest3",
+      "nativeXR": false,
+      "emulated": false,
+      "errors": []
+    }
+  ],
+  "pass": true
+}

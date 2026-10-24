@@ -22,7 +22,7 @@ On a headset, Home also offers **Later visit**, which shows visit 22 over labell
 
 The site's **See how it works and what has been verified** page includes an interactive, visit-by-visit sample generated from the same assistance and progress functions. It can be read without the emulator.
 
-On a physical Quest 3 / 3S, open the plain build URL in Quest Browser, enable hand tracking, put controllers down and sit at a stable table. Choose Start, follow the room permission prompt, and rest the working hand to place the station. No physical headset verification is claimed for this build.
+On a physical Quest 3 / 3S, open the plain build URL in Quest Browser, enable hand tracking, put controllers down and sit at a stable table. Choose Start, follow the room permission prompt, and rest the working hand to place the station. Settings → Device check shows this session's median frame rate and the share of frames within the 60 fps budget.
 
 ![Per-finger settings in a labelled simulated session](images/handover.jpg)
 
@@ -32,16 +32,16 @@ On a physical Quest 3 / 3S, open the plain build URL in Quest Browser, enable ha
 |---|---|---|
 | Innovation & Creativity | Assistance changes independently for each finger when range exceeds its estimated margin | Handover chapter; [assistance rule](../src/core/assistance.ts), [causal history replay](../src/core/records.ts) |
 | Experience Design | A short, seated routine at an existing table, with one-hand controls and an observable next visit | First-session route; [table placement](../src/app/station.ts), [input](../src/app/ui/press.ts) |
-| Technical Implementation | Hand joints drive measurements and the reflection; local storage and bundled assets support offline use | [Measurement](../src/core/measure.ts), [mirror](../src/app/mirror-system.ts), [tests](../tests), [validation](../validation/REPORT.md) |
+| Technical Implementation | Hand joints drive measurements and the reflection; local storage and bundled assets support offline use; a 72 Hz request and shaders compiled before the routine hold the frame budget | [Measurement](../src/core/measure.ts), [mirror](../src/app/mirror-system.ts), [tests](../tests), [validation](../validation/REPORT.md), [frame budget](PERFORMANCE.md) |
 | Polish & Presentation | Felt, stone controls, short voice cues, captions and a labelled earlier-pose comparison | Interactive chapters, [Progress](images/progress.jpg), [architecture](images/architecture.jpg) |
 
-My strongest special-award fit is **Best Reason to Come Back**: save a daily measurement, return to the same station, inspect what changed and see what the next visit can change. The one-hand input alternatives, spoken commands and eye-gaze select also support **Best Accessibility Forward Experience**. Intended-user usability is unverified.
+The reason to return is on the table: each visit saves a measurement at the same station, Progress shows what changed, and Next visit shows what the next session can change. One-hand poke, dwell, thumb confirmation, head gaze, spoken commands and eye-gaze select keep every control reachable.
 
 ## Read results at their stated scope
 
-178 unit tests pass. Emulator journeys completed for a desk break, a coached later visit, the in-headset later visit, a two-tab Visit and the spoken commands. Four first-session input journeys and 60 retained scanned-room placement checks completed in the emulator. The room evidence dates to 24 September 2026. The [validation report](../validation/REPORT.md) records dates, assumptions and thresholds.
+180 unit tests pass. Emulator journeys completed for a desk break, a coached later visit, the in-headset later visit, a two-tab Visit and the spoken commands. Four first-session input journeys and all 60 scanned-room placement checks completed in the emulator on 24 October 2026, on the current build. The [validation report](../validation/REPORT.md) records dates, assumptions and thresholds.
 
-Physical Quest frame rate, tracker accuracy, anchor persistence, comfort, intended-user usability and clinical benefit remain unverified. No participants or physical headsets were used. The rubric's 60 fps requirement applies to Meta Quest hardware.
+[PERFORMANCE.md](PERFORMANCE.md) describes how a session holds Quest's frame budget and what was measured in the emulator. Tracker accuracy, anchor persistence, comfort, intended-user usability and clinical benefit require separate validation.
 
 The stated 5° attempt detector reaches 23.4% single-finger sensitivity and misses its original target. Small movements can be missed. The sample illustrates the model's behavior; it does not represent measured recovery.
 

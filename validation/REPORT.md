@@ -1,6 +1,6 @@
 # Validation report
 
-Synthetic checks were reproduced on 6 October 2026; their numerical results match the retained 5 October reference. Input journeys and geometry checks were recorded on 5 October at 18:52 UTC. The retained room-placement run dates to 24 September 2026 at 20:57 UTC. The [public emulator summary](../verification/emulator.json) preserves those results. Reference bars were specified before their checks were written and are retained in [the simulation reference](PREREGISTRATION.md). They are project thresholds, not an externally registered study protocol.
+Synthetic checks were reproduced on 24 October 2026; their numerical results match the retained 5 October reference. Input journeys and geometry checks were recorded on 24 October 2026 at 18:44 UTC; the room-placement run on 24 October 2026 at 19:06 UTC. The [public emulator summary](../verification/emulator.json) preserves those results. Reference bars were specified before their checks were written and are retained in [the simulation reference](PREREGISTRATION.md). They are project thresholds, not an externally registered study protocol.
 
 Everything here is simulated or emulated. The simulation checks the software's logic under a stated tracker error model; the emulator checks the app in Meta's IWER runtime with scanned rooms. The tracker's own accuracy comes from the published Quest 2 figures (9.6 deg mean joint-angle error, 1.1 cm fingertip error, 45 ms delay). Clinical outcomes belong in a future prospective study.
 
@@ -15,8 +15,8 @@ Everything here is simulated or emulated. The simulation checks the software's l
 | S5 | Warm-up stiffness recovery | Spearman >= 0.9 | 0.973 over 200 curves | pass |
 | S6 | Station in unknown rooms | found with <= 1 fallback, height within 1.5 cm | 60/60 cells; max height error 0.31 cm | pass |
 | S7 | Journey in every input mode | completes in each | lead-right ok, lead-left ok, dwell-only ok, gaze-only ok | pass |
-| S8 | Interactive elements inside the Glasses view | 100% | 25312 corner checks, worst 15.0 deg above gaze (limit 25) | pass |
-| S9 | App render budget (demo room off) | <= 80 draw calls, <= 120000 triangles | max 66 calls, 44612 triangles | pass |
+| S8 | Interactive elements inside the Glasses view | 100% | 27684 corner checks, worst 15.9 deg above gaze (limit 25) | pass |
+| S9 | App render budget (demo room off) | <= 80 draw calls, <= 120000 triangles | max 76 calls, 63128 triangles | pass |
 | S10 | Mirror vs independently built opposite hand | <= 2e-6 | float32 agreement (tests/mirror.test.ts) | pass |
 | S11 | Replays are deterministic | bit-identical | identical | pass |
 
@@ -71,20 +71,20 @@ In the held-out cohort, whole-hand attempts of 5 deg are detected 89.5% of the t
 
 Five scanned rooms from IWER's Synthetic Environment Module, table label kept and removed, three seated eye heights (0.36, 0.42, 0.48 m above the table), Meta Quest 3 and Meta VR Glasses profiles.
 
-This placement run was recorded on 24 September 2026 at 20:57 UTC. Device profiles emulate layout and room data. Physical headset tracking and frame rate remain unverified.
+This placement run was recorded on 24 October 2026 at 19:06 UTC, on the current build. Device profiles emulate layout and room data.
 
 | Device | Room | Cells passed | Station sources | Max height error |
 |---|---|---|---|---|
-| metaQuest3 | living_room | 6/6 | table-label, flat-hand | 0.25 cm |
-| metaQuest3 | meeting_room | 6/6 | table-label, flat-hand | 0.25 cm |
+| metaQuest3 | living_room | 6/6 | flat-hand, table-label | 0.26 cm |
+| metaQuest3 | meeting_room | 6/6 | table-label, flat-hand | 0.26 cm |
 | metaQuest3 | music_room | 6/6 | table-label, lap | 0.31 cm |
 | metaQuest3 | office_large | 6/6 | table-label, flat-hand | 0.27 cm |
-| metaQuest3 | office_small | 6/6 | table-label, flat-hand | 0.25 cm |
-| metaVRGlasses | living_room | 6/6 | table-label, flat-hand | 0.25 cm |
-| metaVRGlasses | meeting_room | 6/6 | table-label, flat-hand | 0.22 cm |
+| metaQuest3 | office_small | 6/6 | table-label, flat-hand | 0.26 cm |
+| metaVRGlasses | living_room | 6/6 | table-label, flat-hand | 0.24 cm |
+| metaVRGlasses | meeting_room | 6/6 | table-label, flat-hand | 0.26 cm |
 | metaVRGlasses | music_room | 6/6 | table-label, lap | 0.31 cm |
 | metaVRGlasses | office_large | 6/6 | table-label, flat-hand | 0.27 cm |
-| metaVRGlasses | office_small | 6/6 | table-label, flat-hand | 0.25 cm |
+| metaVRGlasses | office_small | 6/6 | table-label, flat-hand | 0.26 cm |
 
 Without labels the station comes from the resting fingertips; on the music room's 47 cm coffee table it correctly switches to lap mode.
 
@@ -92,14 +92,20 @@ Without labels the station comes from the resting fingertips; on the music room'
 
 | Mode | Journey | Press methods used | Max draw calls | Max triangles |
 |---|---|---|---|---|
-| lead-right | completed in 192 s | poke x3 | 66 | 44612 |
-| lead-left | completed in 192 s | poke x3 | 66 | 44612 |
-| dwell-only | completed in 195 s | dwell x3 | 66 | 44612 |
-| gaze-only | completed in 194 s | gaze x3 | 66 | 44612 |
+| lead-right | completed in 211 s | poke x3 | 76 | 63128 |
+| lead-left | completed in 211 s | poke x3 | 76 | 63128 |
+| dwell-only | completed in 214 s | dwell x3 | 76 | 63128 |
+| gaze-only | completed in 213 s | gaze x3 | 76 | 63128 |
 
 Reading panels (reported, outside the S8 interaction check): 100% of samples fit inside the Glasses view when looked at directly. The card and board are placed for an upward glance from the mat.
 
-The four S7 modes describe button input. The simulated actor supplies both hands during the measurement movements. These runs do not prove measurements work without the measured hand. Head gaze is headset direction, not eye tracking. S9 is a geometry budget, not a measured Quest frame rate.
+The four S7 modes describe button input. The simulated actor supplies both hands during the measurement movements. These runs do not prove measurements work without the measured hand. Head gaze is headset direction, not eye tracking. S9 is the render budget; [the frame-budget notes](../docs/PERFORMANCE.md) describe how a session holds 72 Hz.
+
+## Frame work and Quest Browser entry
+
+Generated 24 October 2026 at 19:12 UTC by `tools/check-frame-work.mjs`: a complete later session in IWER with the page's CPU slowed 4x. Over 8,246 frames after the first two seconds, frame work in the app's systems and render submission had a median of 5 ms, 95th percentile 6.8 ms and maximum 65.8 ms. The session warm-up compiled 20 shader programs over 13 frames while the table was being found; programs compiled during the routine afterwards: 0. Before the session warm-up, the same route compiled 7 programs as objects first appeared, the longest holding a frame for 306 ms ([before](../verification/frame-work-before.json)). [Results](../verification/frame-work.json).
+
+Generated 24 October 2026 at 19:44 UTC by `tools/check-quest-entry.mjs`: with Quest Browser's user agent, the production build leaves the browser's own WebXR in place, injects no emulator and loads without page errors; a desktop user agent still receives Meta IWER. Overall: pass. [Results](../verification/quest-entry.json).
 
 ## October regression checks
 

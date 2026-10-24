@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-17T19:35:26.358Z",
+  "generated": "2026-10-24T18:44:05.751Z",
   "mask": {
     "left": 37,
     "right": 37,
@@ -49,8 +49,8 @@
     }
   ],
   "S8": {
-    "checked": 27672,
-    "worstUpDeg": 15.945710663841972,
+    "checked": 27684,
+    "worstUpDeg": 15.945116422766237,
     "byStep": [
       {
         "mode": "lead-right"
@@ -72,7 +72,7 @@
       "mode": "lead-right",
       "maxCalls": 76,
       "maxTriangles": 63128,
-      "samples": 821
+      "samples": 819
     },
     {
       "mode": "lead-left",
@@ -84,17 +84,17 @@
       "mode": "dwell-only",
       "maxCalls": 76,
       "maxTriangles": 63128,
-      "samples": 833
+      "samples": 830
     },
     {
       "mode": "gaze-only",
       "maxCalls": 76,
       "maxTriangles": 63128,
-      "samples": 828
+      "samples": 826
     }
   ],
   "panels": {
-    "samples": 4015,
+    "samples": 4004,
     "visibleWithMat": 0,
     "fitInOneView": 1
   },

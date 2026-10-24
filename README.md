@@ -2,7 +2,7 @@
 
 # Understudy
 
-![178 passing unit tests, four IWER input journeys and sixty IWER room-placement cases](docs/img/presentation-checks.svg)
+![180 passing unit tests, four IWER input journeys and sixty IWER room-placement cases](docs/img/presentation-checks.svg)
 
 **A daily mirror exercise for someone practising with one weaker hand, with assistance set finger by finger.**
 
@@ -10,7 +10,7 @@ I built Understudy around a morning at the same table: measure, practise, then i
 
 | Try it | Competition | Built with | Retained evidence |
 |---|---|---|---|
-| [Play without an account](https://marc-dvci.github.io/Understudy/) | Meta VR Start 2026 · Productivity · New Experience | Meta Immersive Web SDK 1.0.1 · TypeScript · WebXR | 178 passing unit tests · 4 input journeys · 60 room-placement cases |
+| [Play without an account](https://marc-dvci.github.io/Understudy/) | Meta VR Start 2026 · Productivity · New Experience | Meta Immersive Web SDK 1.0.1 · TypeScript · WebXR | 180 passing unit tests · 4 input journeys · 60 room-placement cases |
 
 **[Watch the demo](https://youtu.be/GQnz-b9IVoE)** · [Interactive explanation](https://marc-dvci.github.io/Understudy/evidence.html) · [Judge guide](docs/JUDGE_GUIDE.md)
 
@@ -20,7 +20,7 @@ I built Understudy around a morning at the same table: measure, practise, then i
 |---|---|---|
 | Innovation & Creativity | Each finger independently blends the Lead’s reflection with its own tracked movement | Handover chapter; [assistance rule](src/core/assistance.ts) |
 | Experience Design | A seated morning routine, one-hand navigation and a visible next visit; Desk Break for two working hands | First and later-session routes; [coach and return loop](src/core/coach.ts) |
-| Technical Implementation | Hands drive measurements, mirror and input; detected surfaces place the station | [Validation](validation/REPORT.md); [emulator results](verification/emulator.json); [physical Quest protocol](docs/QUEST_TEST_PROTOCOL.md) |
+| Technical Implementation | Hands drive measurements, mirror and input; detected surfaces place the station; a 72 Hz request and shaders compiled before the routine hold the frame budget | [Validation](validation/REPORT.md); [emulator results](verification/emulator.json); [Quest frame budget](docs/PERFORMANCE.md) |
 | Polish & Presentation | Real app footage, readable controls, per-finger explanations and an earlier-pose comparison | Demo video; Progress chapter; gallery below |
 
 ## See it work
@@ -43,7 +43,7 @@ Desktop Chrome or Edge: open the play link and choose **Explore handover**. Comp
 
 **Watch the first session** runs onboarding and a complete routine. **Watch a later session** includes the coach’s plan, its per-finger explanations and Next visit. **Watch a desk break** runs the short routine for two working hands. Sample routes use temporary storage, separate from personal records.
 
-Quest 3 / 3S: open the plain play URL in Quest Browser, enable hand tracking, sit at a stable table and put controllers down. Choose **Start**. Rest the working hand to place the station, then choose a side and programme. **Later visit** on Home opens labelled sample history. Pause and Stop sit at the near edge of the mat.
+Quest 3 / 3S: open the plain play URL in Quest Browser, enable hand tracking, sit at a stable table and put controllers down. Choose **Start**. Rest the working hand to place the station, then choose a side and programme. **Later visit** on Home opens labelled sample history. Pause and Stop sit at the near edge of the mat. **Settings → Device check** shows this session's median frame rate and the share of frames within the 60 fps budget.
 
 ## The daily loop
 
@@ -80,6 +80,8 @@ The Lead’s 25 joint matrices reflect across the resting palms’ midline. Join
 | Spatial anchors | Can restore the station within reach on a later visit |
 | IWER | Executes the real application with synthetic hands and room profiles for demonstrations and retained verification |
 
+**Frame budget.** Each session requests 72 Hz, the lowest Quest 3 / 3S rate above 60 fps, so a frame has 13.9 ms. The SDK renders both eyes with multiview stereo. All 20 shader programs compile during the first frames, while the table is being found, so no screen pauses the first time it appears. The app requests only the WebXR features it reads and redraws textures only when their content changes. [How the frame budget is held and measured](docs/PERFORMANCE.md).
+
 ## Evidence and reproduction
 
 | Claim | Implementation | Verification |
@@ -92,17 +94,20 @@ The Lead’s 25 joint matrices reflect across the resting palms’ midline. Join
 | Plans and explanations follow from records | [coach.ts](src/core/coach.ts) | [Coach tests](tests/coach.test.ts) |
 | Joint-based turn, wrist lift, pinch and repetitions | [movement.ts](src/core/movement.ts) | [Movement tests](tests/movement.test.ts) |
 | Visit rejects malformed hand-pose frames | [pose-codec.ts](src/core/pose-codec.ts) | [Codec tests](tests/pose-codec.test.ts) |
+| 72 Hz request, shader warm-up and session frame timing | [quality.ts](src/app/quality.ts), [warmup.ts](src/app/render/warmup.ts) | [Governor and Device check tests](tests/quality.test.ts), [frame work](verification/frame-work.json) |
 | Spoken commands require an unambiguous visible label | [voice-intent.ts](src/core/voice-intent.ts) | [Voice tests](tests/voice-intent.test.ts) |
 | Care summary escapes data and rejects invalid numbers | [report.ts](src/core/report.ts) | [Summary tests](tests/report.test.ts) |
 
 | Result | Scope | Reproduce or inspect |
 |---|---|---|
-| 178 passing unit tests | Automated software | `npm test`; [software.json](verification/software.json) |
-| 4 complete input journeys | IWER; retained 17 October 2026 | With the managed dev server running: `node tools/e2e-suite.mjs`; [results](verification/e2e-results.json) |
-| 60 / 60 room-placement cases | IWER; retained 24 September 2026 | [Room results and method](validation/REPORT.md#s6-rooms-the-app-was-never-tuned-on) |
+| 180 passing unit tests | Automated software | `npm test`; [software.json](verification/software.json) |
+| 4 complete input journeys | IWER; 24 October 2026 | With the managed dev server running: `node tools/e2e-suite.mjs`; [results](verification/e2e-results.json) |
+| 60 / 60 room-placement cases | IWER; 24 October 2026 | [Room results and method](validation/REPORT.md#s6-rooms-the-app-was-never-tuned-on) |
+| 0 shader compiles once the routine runs | IWER, complete later session, CPU slowed 4× | `node tools/check-frame-work.mjs`; [frame-work.json](verification/frame-work.json) |
+| Quest Browser entry keeps the browser's own WebXR | Production build with the Quest 3 Browser user agent | `node tools/check-quest-entry.mjs`; [quest-entry.json](verification/quest-entry.json) |
 | 20.8° index-range MDC95 | Stated synthetic tracker model | `npm run validate`; [S2 results](validation/REPORT.md#s2-measurement-error-per-hand-print-metric) |
 
-The screens run the real application; the demonstration hands, histories and uncertainty model are simulated. This is an exercise prototype with estimated measurements. Physical Quest frame rate, tracking accuracy, anchor persistence, comfort, intended-user usability and clinical benefit require separate validation. The held-out 5° single-finger attempt detector reaches 23.4% sensitivity, so very small attempts can be missed in Rehearse. The [validation report](validation/REPORT.md) preserves the original reference results alongside later regressions.
+The screens run the real application; the demonstration hands, histories and uncertainty model are simulated. This is an exercise prototype with estimated measurements. Tracking accuracy, anchor persistence, comfort, intended-user usability and clinical benefit require separate validation. The held-out 5° single-finger attempt detector reaches 23.4% sensitivity, so very small attempts can be missed in Rehearse. The [validation report](validation/REPORT.md) preserves the original reference results alongside later regressions.
 
 ## Run locally
 
@@ -128,6 +133,6 @@ npm.cmd run build
 
 Personal records stay in IndexedDB. Sample routes use temporary storage. Confirmed erasure clears records, settings and the stored anchor. Hosting providers receive normal asset requests; offline use needs a successful online visit. Visit uses a public PeerJS broker to introduce the browsers, then exchanges joints over peer-to-peer WebRTC. Optional spoken commands use the browser’s speech recognition service.
 
-`src/core` holds measurement and decision logic; `src/app` holds rendering and flows; `tests` holds software checks; `validation` and `verification` hold methods and evidence; `docs` holds the judge and device-test guides.
+`src/core` holds measurement and decision logic; `src/app` holds rendering and flows; `tests` holds software checks; `validation` and `verification` hold methods and evidence; `docs` holds the judge guide and the frame-budget notes.
 
 Understudy is [MIT licensed](LICENSE), copyright Marc Donovici. Bundled third-party licences and attribution remain in the repository.

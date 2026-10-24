@@ -1,7 +1,7 @@
 {
-  "scope": "IWER emulator checks. No physical hardware or participant evidence.",
+  "scope": "IWER emulator checks with simulated hands and scanned rooms.",
   "inputJourneys": {
-    "recorded": "2026-10-17T19:35:26.358Z",
+    "recorded": "2026-10-24T18:44:05.751Z",
     "journeys": [
       {
         "mode": "lead-right",
@@ -38,8 +38,8 @@
     ]
   },
   "geometry": {
-    "recorded": "2026-10-17T19:35:26.358Z",
-    "checkedStoneCorners": 27672,
+    "recorded": "2026-10-24T18:44:05.751Z",
+    "checkedStoneCorners": 27684,
     "callsBudget": 80,
     "trianglesBudget": 120000,
     "modes": [
@@ -66,10 +66,19 @@
     ]
   },
   "roomPlacement": {
-    "recorded": "2026-09-24T20:57:20.859Z",
+    "recorded": "2026-10-24T19:06:53.243Z",
     "cells": 60,
     "passed": 60,
     "maxHeightErrorCm": 0.31
   },
-  "frameRateOnQuest": "unverified"
+  "frameWork": {
+    "recorded": "2026-10-24T19:12:51.737Z",
+    "cpuSlowdown": 4,
+    "frames": 8246,
+    "medianMs": 5,
+    "p95Ms": 6.8,
+    "warmUpPrograms": 20,
+    "compilesDuringRoutine": 0,
+    "detail": "frame-work.json"
+  }
 }

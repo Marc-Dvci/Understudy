@@ -17,11 +17,7 @@
         "anchors": true,
         "planeDetection": true,
         "meshDetection": true,
-        "hitTest": true,
-        "depthSensing": {
-          "required": false,
-          "usage": "gpu-optimized"
-        }
+        "hitTest": true
       }
     },
     "input": {
@@ -42,7 +38,7 @@
       "locomotion": false,
       "grabbing": false,
       "physics": false,
-      "sceneUnderstanding": true,
+      "sceneUnderstanding": false,
       "environmentRaycast": true,
       "spatialUI": {
         "kit": "horizon"

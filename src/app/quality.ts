@@ -1,16 +1,22 @@
 /**
- * Measures the app's own frame time on the device it runs on and steps down
- * refresh rate when frames run long, without reducing visual quality.
- * It also builds the diagnostics code: a short
- * string a tester can read out that summarises how the device performed.
+ * Holds the session to the headset's frame budget without reducing visual
+ * quality. It asks for 72 Hz, the lowest Quest 3 / 3S rate above the 60 fps
+ * floor, which gives each frame 13.9 ms; compiles every shader before the
+ * routine starts; measures the app's own frame time on the device; and steps
+ * down to a lower supported rate only if frames keep running long. It also
+ * builds the Device check: frame timing a tester can read out.
  */
 import { createSystem } from '@iwsdk/core';
 import { APP_VERSION } from '../core/records.js';
 import { flow } from './flow/engine.js';
+import type { ShaderWarmUp, WarmUpResult } from './render/warmup.js';
 import { state } from './state.js';
 
 const WINDOW = 180;
 const CHECK_EVERY = 30;
+/** Session frame-time histogram: 0.25 ms bins up to 100 ms. */
+const BIN_MS = 0.25;
+const BINS = 400;
 
 export class QualitySystem extends createSystem({}) {
   private readonly frames = new Float32Array(WINDOW);
@@ -21,10 +27,13 @@ export class QualitySystem extends createSystem({}) {
   private total = 0;
   private slowFor = 0;
   step = 0;
-  targetHz = 90;
+  targetHz = 72;
   private sessionSeen: XRSession | null = null;
-  private readonly all = new Float32Array(20000);
-  private allCount = 0;
+  private readonly histogram = new Uint32Array(BINS);
+  /** Set when the flow starts; built and stepped in XR frames, so programs match the session's render target. */
+  private makeWarmUp: (() => ShaderWarmUp) | null = null;
+  private warmUp: ShaderWarmUp | null = null;
+  warm: WarmUpResult | null = null;
 
   update(delta: number): void {
     const session = this.world.session;
@@ -32,12 +41,29 @@ export class QualitySystem extends createSystem({}) {
       this.sessionSeen = session;
       this.onSession(session);
     }
+    if (session && (this.makeWarmUp || this.warmUp)) {
+      // a failed warm-up only means shaders compile on first use, as before
+      try {
+        if (this.makeWarmUp) {
+          const make = this.makeWarmUp;
+          this.makeWarmUp = null;
+          this.warmUp = make();
+        }
+        if (this.warmUp?.step()) {
+          this.warm = this.warmUp.result;
+          this.warmUp = null;
+        }
+      } catch (e) {
+        console.warn('[understudy] shader warm-up stopped', e);
+        this.warmUp = null;
+      }
+    }
     if (!state.immersive || flow.paused || delta <= 0 || delta > 0.5) return;
     this.frames[this.n % WINDOW] = delta;
     this.n++;
     this.total++;
     if (delta > 1 / 60 + 0.001) this.over++;
-    if (this.allCount < this.all.length) this.all[this.allCount++] = delta;
+    this.histogram[Math.min(BINS - 1, Math.floor((delta * 1000) / BIN_MS))]++;
     if (this.n < WINDOW) return;
     this.sampleElapsed += delta;
     if (this.n % CHECK_EVERY !== 0) return;
@@ -58,11 +84,16 @@ export class QualitySystem extends createSystem({}) {
     const rates = s.supportedFrameRates ? Array.from(s.supportedFrameRates) : [];
     this.n = this.sampleElapsed = this.slowFor = this.total = this.over = 0;
     this.step = 0;
-    this.allCount = 0;
-    this.targetHz = rates.includes(90) ? 90 : rates.includes(72) ? 72 : s.frameRate ?? rates[0] ?? 72;
+    this.histogram.fill(0);
+    this.targetHz = rates.includes(72) ? 72 : s.frameRate ?? rates[0] ?? 72;
     if (rates.includes(this.targetHz)) void s.updateTargetFrameRate?.(this.targetHz).catch(() => undefined);
     // Keep the authored material and resolution throughout the session.
     this.world.renderer.xr.setFoveation(0.5);
+  }
+
+  /** Compiles every shader over the next XR frames (see render/warmup.ts). */
+  requestWarmUp(make: () => ShaderWarmUp): void {
+    this.makeWarmUp = make;
   }
 
   private stepDown(): void {
@@ -84,10 +115,20 @@ export class QualitySystem extends createSystem({}) {
     return this.sorted[Math.min(WINDOW - 1, Math.floor(p * WINDOW))];
   }
 
+  /** Frame interval at quantile `p` over the whole session, in seconds (bin centre). */
+  private quantile(p: number): number {
+    const target = p * this.total;
+    let seen = 0;
+    for (let i = 0; i < BINS; i++) {
+      seen += this.histogram[i];
+      if (seen > target) return ((i + 0.5) * BIN_MS) / 1000;
+    }
+    return 0;
+  }
+
   /** Summary for the diagnostics code. */
   summary(): Record<string, string | number> {
-    const v = Array.from(this.all.subarray(0, this.allCount)).sort((a, b) => a - b);
-    const q = (p: number) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : 0);
+    const q = (p: number) => (this.total ? this.quantile(p) : 0);
     const feats = ((this.world.session as XRSession & { enabledFeatures?: string[] } | undefined)?.enabledFeatures ?? []).join(' ');
     const ua = navigator.userAgent;
     // IWER can emulate a Quest user agent. Mark emulation before parsing it.
@@ -113,5 +154,19 @@ export class QualitySystem extends createSystem({}) {
   code(): string {
     const s = this.summary();
     return `${s.app}|${s.device}|${s.hz}|${s.p50}|${s.p95}|${s.over60}|${s.steps}|${s.station}|${s.anchor}|${s.hands}|${s.feats}`;
+  }
+
+  /** Device check lines: this session's frame rate in words, then the code. */
+  report(): string[] {
+    const s = this.summary();
+    if (!this.total) return ['Frame timing starts with the routine.', this.code()];
+    const fps = Math.round(1000 / Number(s.p50));
+    return [
+      // the emulator draws at the computer display's rate, whatever the session requests
+      s.device === 'EMU' ? `${fps} fps median in the emulator this session.` : `${fps} fps median at ${s.hz} Hz this session.`,
+      `${Math.round((100 - Number(s.over60)) * 10) / 10}% of frames within the 60 fps budget.`,
+      // spaced so the board can wrap it
+      this.code().replace(/\|/g, ' | '),
+    ];
   }
 }
